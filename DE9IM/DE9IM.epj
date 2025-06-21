@@ -1,0 +1,47 @@
+{
+   "Version" : 0.2,
+   "ModuleName" : "DE9IM",
+   "Options" : {
+      "Warnings" : "All",
+      "TargetType" : "SharedLibrary",
+      "TargetFileName" : "DE9IM",
+      "Libraries" : [
+         "ecrt"
+      ]
+   },
+   "Configurations" : [
+      {
+         "Name" : "Debug",
+         "Options" : {
+            "Debug" : true,
+            "Optimization" : "None",
+            "PreprocessorDefinitions" : [
+               "_DEBUG"
+            ],
+            "FastMath" : false
+         }
+      },
+      {
+         "Name" : "Release",
+         "Options" : {
+            "Debug" : false,
+            "Optimization" : "Speed",
+            "FastMath" : true
+         }
+      }
+   ],
+   "Files" : [
+      {
+         "FileName" : "DE9IM.ec",
+         "Options" : {
+            "PreprocessorDefinitions" : [
+               "IMPORT_STATIC=\"\""
+            ]
+         }
+      }
+   ],
+   "ResourcesPath" : "",
+   "Resources" : [
+
+   ]
+}

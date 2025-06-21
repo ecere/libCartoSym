@@ -1,0 +1,66 @@
+{
+   "Version" : 0.2,
+   "ModuleName" : "CQL2",
+   "Options" : {
+      "Warnings" : "All",
+      "PreprocessorDefinitions" : [
+         "IMPORT_STATIC=\"\""
+      ],
+      "TargetType" : "SharedLibrary",
+      "TargetFileName" : "CQL2",
+      "Libraries" : [
+         "ecrt"
+      ]
+   },
+   "Platforms" : [
+      {
+         "Name" : "linux",
+         "Options" : {
+            "Libraries" : [
+               "m"
+            ]
+         }
+      }
+   ],
+   "Configurations" : [
+      {
+         "Name" : "Debug",
+         "Options" : {
+            "Debug" : true,
+            "Optimization" : "None",
+            "PreprocessorDefinitions" : [
+               "_DEBUG"
+            ],
+            "FastMath" : false
+         }
+      },
+      {
+         "Name" : "Release",
+         "Options" : {
+            "Debug" : false,
+            "Optimization" : "Speed",
+            "FastMath" : true
+         }
+      }
+   ],
+   "Files" : [
+      {
+         "Folder" : "deps",
+         "Files" : [
+            "Colors.ec"
+         ]
+      },
+      "CQL2-JSON.ec",
+      "CQL2Evaluator.ec",
+      "CQL2Expressions.ec",
+      "CQL2Internalization.ec",
+      "CQL2Lexing.ec",
+      "CQL2Node.ec",
+      "CQL2Normalization.ec",
+      "CQL2Tools.ec"
+   ],
+   "ResourcesPath" : "",
+   "Resources" : [
+
+   ]
+}

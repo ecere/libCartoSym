@@ -1,0 +1,29 @@
+The CartoSym libraries (libCartoSym, libCQL2, libDE9IM, libSFCollections, libSFGeometry, libGeoExtents)
+were developed at Ecere Corporation and are being maintained by Jérôme Jacovella-St-Louis.
+
+Contributors at Ecere:
+
+   Patrick Dion
+   Réjean Loyer
+   Diego Caraffini
+   Neil Warnock
+
+Significant progress was achieved as part of a number of initiatives including:
+
+- several OGC Testbeds,
+- the OGC Vector Tiles Pilots,
+- the Releasable Basemap Tiles Code Sprint,
+- the Ecere GeoConnections 2020-2021 project entitled "Flexible real-time data processing and visualization workflows emerging from OGC API modules" ("Modular OGC API Workflows" a.k.a "MOAW"), and
+- the Ecere GeoConnections 2025-2027 project entitled "Advancing and Implementing OGC Standards for GeoDataCubes, DGGSs, Data Stores for Digital Twins and Cartographic Symbology").
+
+Special thanks to Maxime Collombin, Olivier Ertz and Erwan Bocher for their support and collaboration in the context of the Cartographic Symbology Standard Working Group.
+
+Acknowledgements
+
+Financial support provided by GeoConnections, a national collaborative initiative led by Natural Resources Canada.
+GeoConnections supports the modernization of the Canadian Geospatial Data Infrastructure (CGDI).
+The CGDI is the collection of geospatial data, standards, policies, applications, and governance that facilitate its access, use, integration, and preservation.
+
+Soutien financier fourni par GéoConnexions, une initiative de collaboration nationale dirigée par Ressources naturelles Canada.
+GéoConnexions appuie la modernisation de l'Infrastructure canadienne de données géospatiales (ICDG).
+L'ICDG est l'ensemble de données géospatiales, de normes, de politiques, d'applications et de la gouvernance qui en facilitent l'accès, l'utilisation, l'intégration et la préservation.

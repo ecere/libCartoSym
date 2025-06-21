@@ -1,0 +1,59 @@
+{
+   "Version" : 0.2,
+   "ModuleName" : "SFCollections",
+   "Options" : {
+      "Warnings" : "All",
+      "PreprocessorDefinitions" : [
+         "IMPORT_STATIC=\"\""
+      ],
+      "TargetType" : "SharedLibrary",
+      "TargetFileName" : "SFCollections",
+      "Libraries" : [
+         "ecrt"
+      ]
+   },
+   "Configurations" : [
+      {
+         "Name" : "Debug",
+         "Options" : {
+            "Debug" : true,
+            "Optimization" : "None",
+            "PreprocessorDefinitions" : [
+               "_DEBUG"
+            ],
+            "FastMath" : false
+         }
+      },
+      {
+         "Name" : "Release",
+         "Options" : {
+            "Debug" : false,
+            "Optimization" : "Speed",
+            "FastMath" : true
+         }
+      }
+   ],
+   "Files" : [
+      {
+         "Folder" : "extras",
+         "Files" : [
+            "../../eC/extras/iso8601.ec"
+         ]
+      },
+      {
+         "Folder" : "deps",
+         "Files" : [
+            "MinimalProjection.ec",
+            "TimeIntervals.ec"
+         ]
+      },
+      "FeatureCollection.ec",
+      "geoJSON.ec",
+      "VectorFeatures.ec",
+      "wkbc.ec"
+   ],
+   "ResourcesPath" : "",
+   "Resources" : [
+
+   ]
+}

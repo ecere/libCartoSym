@@ -1,15 +1,21 @@
-public import IMPORT_STATIC "ecere"
-public import IMPORT_STATIC "EDA" // For FieldValue
+public import IMPORT_STATIC "ecrt"
+public import IMPORT_STATIC "SFGeometry"
+public import IMPORT_STATIC "SFCollections"  // For TemporalOptions
 
-public import "stringTools"
-public import "iso8601"
-public import "lexing"
-public import "astNode"
-public import "cartoSym"
+private:
+
+import "Colors"      // FIXME: Here for now, but should only be in CartoSym
+import "CQL2Lexing"
+import "CQL2Node"
+import "CQL2Tools"
+import "CQL2Evaluator"
+import "CQL2Internalization"   // for convertToInternalCQL2()
 
 default:
-extern int __ecereVMethodID_class_OnGetDataFromString;
-extern int __ecereVMethodID_class_OnGetString;
+extern int __eCVMethodID_class_OnGetDataFromString;
+extern int __eCVMethodID_class_OnGetString;
+extern int __eCVMethodID_class_OnCopy;
+extern int __eCVMethodID_class_OnFree;
 static __attribute__((unused)) void dummy() { int a = 0; a.OnGetDataFromString(null); a.OnGetString(0,0,0); }
 private:
 
@@ -117,53 +123,6 @@ private:
                           null, null, null, null, null, null \
 }
 
-static CartoSymTokenType opPrec[][8] =
-{
-   { '*', '/', intDivide, '%' },
-   { '+', '-' },
-   { in },
-   { lShift, rShift },
-   { '<', '>', smallerEqual, greaterEqual },
-   { equal, notEqual, stringStartsWith, stringNotStartsW, stringEndsWith, stringNotEndsW, stringContains, stringNotContains },
-   { bitAnd },
-   { bitOr },
-   { bitNot },
-   { bitXor },
-   { and },
-   { or }
-};
-
-static define numPrec = sizeof(opPrec) / sizeof(opPrec[0]);
-
-public bool isLowerEqualPrecedence(CartoSymTokenType opA, CartoSymTokenType opB)
-{
-   int i;
-   int pa = -1, pb = -1;
-   for(i = 0; i < numPrec; i++)
-   {
-      if(isPrecedence(opA, i)) pa = i;
-      if(isPrecedence(opB, i)) pb = i;
-   }
-   return pa <= pb || (opA == or && opB == and); // Bracket mixed OR and AND even if AND has higher precedence...
-}
-
-static bool isPrecedence(CartoSymTokenType this, int l)
-{
-   if(this)
-   {
-      int o;
-      for(o = 0; o < sizeof(opPrec[0]) / sizeof(opPrec[0][0]); o++)
-      {
-         CartoSymTokenType op = opPrec[l][o];
-         if(this == op)
-            return true;
-         else if(!op)
-            break;
-      }
-   }
-   return false;
-}
-
 OpTable opTables[FieldType] =
 {
    OPERATOR_TABLE_EMPTY(nil),
@@ -171,6 +130,11 @@ OpTable opTables[FieldType] =
    OPERATOR_TABLE_REAL(real),
    OPERATOR_TABLE_TEXT(text)
 };
+
+public enum ComputeType { preprocessing, runtime, other };
+
+public class InstanceMask : uint64 { bool bitMember:1:63; } // Just to force this to be a bit class...
+
 
 public class ExpFlags : uint
 {
@@ -180,16 +144,15 @@ public:
    bool isNotLiteral:1:7; // REVIEW: Do we really need this flag
 };
 
-public enum ComputeType { preprocessing, runtime, other };
 
-void * copyList(List list, CartoSymNode copy(CartoSymNode))
+void * copyList(List list, CQL2Node copy(CQL2Node))
 {
-   List<CartoSymNode> result = null;
+   List<CQL2Node> result = null;
    if(list)
    {
       result = eInstance_New(list._class);
       for(l : list)
-         result.Add(copy((CartoSymNode)l));
+         result.Add(copy((CQL2Node)l));
    }
    return result;
 }
@@ -220,10 +183,13 @@ Array<String> splitIdentifier(const String s)
    return values;
 }
 
-public CartoSymExpression simplifyResolved(FieldValue val, CartoSymExpression e)
+public CQL2Expression simplifyResolved(FieldValue val, CQL2Expression e)
 {
    // Handling some conversions here...
-   Class destType = e.destType;
+   Class destType = e ? e.destType : null;
+
+   if(!e) return null;
+
    if(destType && e.expType != destType)
    {
       if(destType == class(float) || destType == class(double))
@@ -234,15 +200,15 @@ public CartoSymExpression simplifyResolved(FieldValue val, CartoSymExpression e)
          convertFieldValue(val, {integer}, val);
    }
 
-   if(e._class == class(CartoSymExpBrackets) && ((CartoSymExpBrackets)e).list && ((CartoSymExpBrackets)e).list.list.count > 1)
+   if(e._class == class(CQL2ExpBrackets) && ((CQL2ExpBrackets)e).list && ((CQL2ExpBrackets)e).list.list.count > 1)
       return e; // Do not simplify lists with more than one element
-   else if(e._class == class(CartoSymExpConditional))
+   else if(e._class == class(CQL2ExpConditional))
    {
-      CartoSymExpConditional conditional = (CartoSymExpConditional)e;
-      CartoSymExpression ne = null;
+      CQL2ExpConditional conditional = (CQL2ExpConditional)e;
+      CQL2Expression ne = null;
       if(conditional.result)
       {
-         CartoSymExpression last = conditional.expList ? conditional.expList.lastIterator.data : null;
+         CQL2Expression last = conditional.expList ? conditional.expList.lastIterator.data : null;
          if(last)
             ne = last, conditional.expList.TakeOut(last);
       }
@@ -252,20 +218,20 @@ public CartoSymExpression simplifyResolved(FieldValue val, CartoSymExpression e)
       delete e;
       return ne;
    }
-   else if(e._class != class(CartoSymExpString) && e._class != class(CartoSymExpConstant) && e._class != class(CartoSymExpInstance) && e._class != class(CartoSymExpArray))
+   else if(e._class != class(CQL2ExpString) && e._class != class(CQL2ExpConstant) && e._class != class(CQL2ExpInstance) && e._class != class(CQL2ExpArray))
    {
-      CartoSymExpression ne = (val.type.type == text) ? (val.s ? CartoSymExpString { string = CopyString(val.s) } :  CartoSymExpIdentifier { identifier = CartoSymIdentifier { string = CopyString("null") } })  : CartoSymExpConstant { constant = val };
+      CQL2Expression ne = (val.type.type == text) ? (val.s ? CQL2ExpString { string = CopyString(val.s) } :  CQL2ExpIdentifier { identifier = CQL2Identifier { string = CopyString("null") } })  : CQL2ExpConstant { constant = val };
       ne.destType = e.destType;
       ne.expType = e.expType;
       delete e;
       return ne;
    }
-   else if(e._class == class(CartoSymExpInstance))
+   else if(e._class == class(CQL2ExpInstance))
    {
       Class c = e.expType ? e.expType : e.destType;   // NOTE: At this point, expType should be set but is currently null?
       if(c && c.type == bitClass)
       {
-         CartoSymExpression ne = CartoSymExpConstant { constant = val };
+         CQL2Expression ne = CQL2ExpConstant { constant = val };
          ne.destType = e.destType;
          ne.expType = e.expType;
          delete e;
@@ -273,7 +239,7 @@ public CartoSymExpression simplifyResolved(FieldValue val, CartoSymExpression e)
       }
       else if(c && c == class(DateTime) && val.type.isDateTime)
       {
-         CartoSymExpression ne = CartoSymExpConstant { constant = val };
+         CQL2Expression ne = CQL2ExpConstant { constant = val };
          ne.destType = e.destType;
          ne.expType = e.expType;
          delete e;
@@ -283,22 +249,22 @@ public CartoSymExpression simplifyResolved(FieldValue val, CartoSymExpression e)
    return e;
 }
 
-public CartoSymExpression parseCartoSymExpression(const String string)
+public CQL2Expression parseCQL2Expression(const String string)
 {
-   CartoSymExpression e = null;
+   CQL2Expression e = null;
    if(string)
    {
-      CartoSymLexer lexer { };
+      CQL2Lexer lexer { };
       lexer.initString(string);
-      e = CartoSymExpression::parse(lexer);
+      e = CQL2Expression::parse(lexer);
 
       if(lexer.type == lexingError || (lexer.nextToken && lexer.nextToken.type != endOfInput))
       {
 #ifdef _DEBUG
          if(lexer.type == lexingError)
-            PrintLn("ECCSS Lexing Error at line ", lexer.pos.line, ", column ", lexer.pos.col);
+            PrintLn("CQL2-Text/CartoSym-CSS Lexing Error at line ", lexer.pos.line, ", column ", lexer.pos.col);
          else
-            PrintLn("ECCSS Syntax Error: Unexpected token ", lexer.nextToken.type,
+            PrintLn("CQL2-Text/CartoSym-CSS Syntax Error: Unexpected token ", lexer.nextToken.type,
                lexer.nextToken.text ? lexer.nextToken.text : "",
                " at line ", lexer.pos.line, ", column ", lexer.pos.col);
 #endif
@@ -310,46 +276,108 @@ public CartoSymExpression parseCartoSymExpression(const String string)
    return e;
 }
 
+static CQL2TokenType opPrec[][10] =
+{
+   { '^' },
+   { '*', '/' , intDivide, '%' },
+   { '+', '-' },
+   { in },
+   { lShift, rShift },
+   { '<', '>', smallerEqual, greaterEqual },
+   { equal, notEqual, is, like, stringStartsWith, stringNotStartsW, stringEndsWith, stringNotEndsW, stringContains, stringNotContains },
+   { bitAnd },
+   { bitOr },
+   { bitNot },
+   { bitXor },
+   { and },
+   { or, not /* for not between */, between }
+};
 
-public class CartoSymIdentifier : CartoSymNode
+static define numPrec = sizeof(opPrec) / sizeof(opPrec[0]);
+
+public bool isLowerEqualPrecedence(CQL2TokenType opA, CQL2TokenType opB)
+{
+   int i;
+   int pa = -1, pb = -1;
+   for(i = 0; i < numPrec; i++)
+   {
+      if(isPrecedence(opA, i)) pa = i;
+      if(isPrecedence(opB, i)) pb = i;
+   }
+   return pa <= pb || (opA == or && opB == and); // Bracket mixed OR and AND even if AND has higher precedence...
+}
+
+static bool isPrecedence(CQL2TokenType this, int l)
+{
+   if(this)
+   {
+      int o;
+      for(o = 0; o < sizeof(opPrec[0]) / sizeof(opPrec[0][0]); o++)
+      {
+         CQL2TokenType op = opPrec[l][o];
+         if(this == op)
+            return true;
+         else if(!op)
+            break;
+      }
+   }
+   return false;
+}
+
+public class CQL2Identifier : CQL2Node
 {
 public:
    String string;
 
-   void print(File out, int indent, CartoSymOutputOptions o)
+   bool isValid(bool allowColon)
    {
-      bool quote = !string || needsQuotes(string);
-      if(quote) out.Print('`');
+      if(string && string[0])
+      {
+         int i, nb;
+         unichar ch;
+
+         // NOTE: While we treat false, true, and null as identifiers, we can't support them even double-quoted.
+         if(cql2StringTokens[string]) return false; // Avoid conflict with tokens
+         for(i = 0; (ch = UTF8GetChar(string + i, &nb)); i += nb)
+         {
+            if(!(i ? isValidCQL2IdChar(ch, allowColon) : isValidCQL2IdStart(ch, allowColon) ))
+               return false;
+         }
+         return true;
+      }
+      return false;
+   }
+
+   void print(File out, int indent, CQL2OutputOptions o)
+   {
+      // NOTE: according to the spec, can be quoteless also
+      bool needsQuotes = string && !isValid(o.strictCQL2);
+      if(needsQuotes) out.Print('"');
       out.Print(string ? string : "<null>");
-      if(quote) out.Print('`');
+      if(needsQuotes) out.Print('"');
    }
 
-   bool ::needsQuotes(const String string)
-   {
-      bool quote = isdigit(string[0]) || strchr(string, ' ') || strchr(string, ':');
-      return quote;
-   }
-
-   CartoSymIdentifier ::parse(CartoSymLexer lexer)
+   CQL2Identifier ::parse(CQL2Lexer lexer)
    {
       lexer.readToken();
       return { string = CopyString(lexer.token.text) };
    }
 
-   CartoSymIdentifier copy()
+   CQL2Identifier copy()
    {
-      CartoSymIdentifier id { string = CopyString(string) };
+      CQL2Identifier id { string = CopyString(string) };
       return id;
    }
 
-   ~CartoSymIdentifier()
+   ~CQL2Identifier()
    {
       delete string;
    }
 };
 
 // Expressions
-public class CartoSymExpression : CartoSymNode
+
+public class CQL2Expression : CQL2Node
 {
 public:
    DataValue val;
@@ -357,11 +385,12 @@ public:
    Class expType;
 
    //virtual float compute();
-   public virtual ExpFlags compute(FieldValue value, ECCSSEvaluator evaluator, ComputeType computeType, Class stylesClass);
+   public virtual ExpFlags compute(FieldValue value, CQL2Evaluator evaluator, ComputeType computeType, Class instClass);
 
-   CartoSymExpression ::parse(CartoSymLexer lexer)
+   CQL2Expression ::parse(CQL2Lexer lexer)
    {
-      CartoSymExpression e = CartoSymExpConditional::parse(lexer);
+      //return CQL2ExpConditional::parse(lexer); // do we want this right now?
+      CQL2Expression e = CQL2ExpOperation::parse(numPrec-1, lexer);
       if(lexer.type == lexingError ||
          lexer.type == syntaxError ||
          (lexer.nextToken && (lexer.nextToken.type == lexingError || lexer.nextToken.type == syntaxError)))
@@ -370,44 +399,88 @@ public:
    }
 }
 
-public class CartoSymExpList : CartoSymList<CartoSymExpression>
+public class CQL2ExpList : CQL2List<CQL2Expression>
 {
 public:
-   CartoSymExpList ::parse(CartoSymLexer lexer)
+   CQL2ExpList ::parse(CQL2Lexer lexer)
    {
-      return (CartoSymExpList)CartoSymList::parse(class(CartoSymExpList), lexer, CartoSymExpression::parse, ',');
+      return (CQL2ExpList)CQL2List::parse(class(CQL2ExpList), lexer, CQL2Expression::parse, ',');
    }
 
-   CartoSymExpList copy()
+   CQL2ExpList copy()
    {
-      CartoSymExpList e { };
-      for(n : list)
-         e.list.Add(n.copy());
-      return e;
+      if(this)
+      {
+         CQL2ExpList e { };
+         for(n : list)
+            e.list.Add(n.copy());
+         return e;
+      }
+      return null;
    }
 }
 
-static CartoSymExpression parseSimplePrimaryExpression(CartoSymLexer lexer)
+public class CQL2Tuple : CQL2List<CQL2Expression>
+{
+public:
+
+   CQL2Tuple copy()
+   {
+      return (CQL2Tuple)CQL2List::copy();
+   }
+   void print(File out, int indent, CQL2OutputOptions o)
+   {
+      Iterator<CQL2Expression> it { list };
+      while(it.Next())
+      {
+         it.data.print(out, indent, o);
+         if(list.GetNext(it.pointer))
+            out.Print(" ");
+      }
+   }
+}
+
+// REVIEW: How to extensibly manage valid class names?
+static bool isInstanceClass(const String s)
+{
+   return
+      !strcmpi(s, "Text") ||
+      !strcmpi(s, "Image") ||
+      !strcmpi(s, "Dot")
+      ;
+}
+
+static CQL2Expression parseSimplePrimaryExpression(CQL2Lexer lexer)
 {
    if(lexer.peekToken().type == constant)
-      return CartoSymExpConstant::parse(lexer);
+      return CQL2ExpConstant::parse(lexer);
    else if(lexer.nextToken.type == identifier)
    {
-      CartoSymExpIdentifier exp = CartoSymExpIdentifier::parse(lexer);
-      if(lexer.peekToken().type == '{')
+      CQL2ExpIdentifier exp = CQL2ExpIdentifier::parse(lexer);
+      CQL2Token token = lexer.peekToken();
+      bool isInstance = false;
+
+      if(!lexer.strictCQL2)
       {
-         CartoSymSpecName spec { name = CopyString(exp.identifier.string) };
-         delete exp;
-         return CartoSymExpInstance::parse(spec, lexer);
+         if(token.type == '{')
+            isInstance = true;
+         else if(token.type == '(' && exp.identifier && exp.identifier.string)
+            isInstance = isInstanceClass(exp.identifier.string);
+         if(isInstance)
+         {
+            CQL2SpecName spec { name = CopyString(exp.identifier.string) };
+            delete exp;
+            return CQL2ExpInstance::parse(spec, lexer);
+         }
       }
       return exp;
    }
    else if(lexer.nextToken.type == stringLiteral)
-      return CartoSymExpString::parse(lexer);
-   else if(lexer.nextToken.type == '{')
-      return CartoSymExpInstance::parse(null, lexer);
-   else if(lexer.nextToken.type == '[')
-      return CartoSymExpArray::parse(lexer);
+      return CQL2ExpString::parse(lexer);
+   else if(!lexer.strictCQL2 && lexer.nextToken.type == '{')
+      return CQL2ExpInstance::parse(null, lexer);
+   else if(!lexer.strictCQL2 && lexer.nextToken.type == '[')
+      return CQL2ExpArray::parse(lexer);
    else
    {
       // This could happen e.g., at the end of a list with next token being ']'
@@ -415,52 +488,86 @@ static CartoSymExpression parseSimplePrimaryExpression(CartoSymLexer lexer)
    }
 }
 
-static CartoSymExpression parsePrimaryExpression(CartoSymLexer lexer)
+static CQL2Expression parsePrimaryExpression(CQL2Lexer lexer)
 {
    if(lexer.peekToken().type == '(')
    {
-      CartoSymExpBrackets exp { };
+      CQL2ExpList list;
+      bool isIn = lexer.token.type == in;
+
       lexer.readToken();
-      exp.list = CartoSymExpList::parse(lexer);
+
+      list = CQL2ExpList::parse(lexer);
       if(lexer.peekToken().type == ')')
          lexer.readToken();
-      return exp;
+
+      if(isIn || (list && (!list.list || !list.list.count || list.list.count > 1)))
+         return CQL2ExpArray { elements = list };
+      else
+         return CQL2ExpBrackets { list = list };
    }
    else
       return parseSimplePrimaryExpression(lexer);
 }
 
-static CartoSymExpression parsePostfixExpression(CartoSymLexer lexer)
+static CQL2Expression parsePostfixExpression(CQL2Lexer lexer)
 {
-   CartoSymExpression exp = parsePrimaryExpression(lexer);
+   CQL2Expression exp = parsePrimaryExpression(lexer);
    while(exp) //true)
    {
-      if(lexer.peekToken().type == '[')
-         exp = CartoSymExpIndex::parse(exp, lexer);
-      else if(lexer.nextToken.type == '(')
-         exp = CartoSymExpCall::parse(exp, lexer);
-      else if(lexer.nextToken.type == '.')
-         exp = CartoSymExpMember::parse(exp, lexer);
+      if(lexer.peekToken().type == '(')
+         exp = CQL2ExpCall::parse(exp, lexer);
+      else if(!lexer.strictCQL2 && lexer.peekToken().type == '[')
+         exp = CQL2ExpIndex::parse(exp, lexer);
+      else if(!lexer.strictCQL2 && lexer.nextToken.type == '.')
+         exp = CQL2ExpMember::parse(exp, lexer);
       else
          break;
    }
    return exp;
 }
 
-static CartoSymExpression parseUnaryExpression(CartoSymLexer lexer)
+static CQL2Expression parseTupleOrUnaryExpression(CQL2Lexer lexer)
+{
+   CQL2Expression exp = null;
+   CQL2Tuple tuple = null;
+   while((exp = parseUnaryExpression(lexer)))
+   {
+      CQL2TokenType type = lexer.peekToken().type;
+      if(type == CQL2Token::constant || type == CQL2Token::identifier || type == CQL2Token::stringLiteral || (lexer.wktContext > 0 && type.isUnaryOperator))
+      {
+         if(!tuple)
+            tuple = { };
+         tuple.Add(exp);
+      }
+      else if(tuple)
+         tuple.Add(exp);
+      else
+         break;
+   }
+
+   if(tuple)
+   {
+      exp = tupleToPointExpInstance(tuple);
+      delete tuple;
+   }
+   return exp; //tuple ? (CQL2Expression)tuple : exp;
+}
+
+static CQL2Expression parseUnaryExpression(CQL2Lexer lexer)
 {
    lexer.peekToken();
    if(lexer.nextToken.type.isUnaryOperator)
    {
-      CartoSymTokenType tokenType;
-      CartoSymExpression exp2;
+      CQL2TokenType tokenType;
+      CQL2Expression exp2;
 
       lexer.readToken();
       tokenType = lexer.token.type;
       exp2 = parseUnaryExpression(lexer);
-      if(tokenType == minus && exp2 && exp2._class == class(CartoSymExpConstant))
+      if(tokenType == minus && exp2 && exp2._class == class(CQL2ExpConstant))
       {
-         CartoSymExpConstant c = (CartoSymExpConstant)exp2;
+         CQL2ExpConstant c = (CQL2ExpConstant)exp2;
          if(c.constant.type.type == integer)
             c.constant.i *= -1;
          else
@@ -468,18 +575,19 @@ static CartoSymExpression parseUnaryExpression(CartoSymLexer lexer)
          return c;
       }
       else
-         return CartoSymExpOperation { op = tokenType, exp2 = exp2 };
+         return CQL2ExpOperation { op = tokenType, exp2 = exp2 };
    }
    else
       return parsePostfixExpression(lexer);
 }
 
-public class CartoSymExpConstant : CartoSymExpression
+public class CQL2ExpConstant : CQL2Expression
 {
 public:
    FieldValue constant;
+   CQL2Identifier unit;
 
-   void print(File out, int indent, CartoSymOutputOptions o)
+   void print(File out, int indent, CQL2OutputOptions o)
    {
       Class type = destType ? destType : expType;  // NOTE: Color expType get converted to integer during compute()...
       if(constant.type.format == hex && (type == class(int64) || type == class(int)))
@@ -496,7 +604,7 @@ public:
 
       if(type && !constant.type.isDateTime) // Review this type check logic
       {
-         const char *(* onGetString)(void *, void *, char *, void *, ObjectNotationType *) = type._vTbl[__ecereVMethodID_class_OnGetString];
+         const char *(* onGetString)(void *, void *, char *, void *, ObjectNotationType *) = type._vTbl[__eCVMethodID_class_OnGetString];
          char tempString[1024];
          ObjectNotationType on = econ;
          const String s = onGetString(type, &constant.i, tempString, null, &on);
@@ -512,7 +620,7 @@ public:
          {
             char number[64];
             sprintf(number,
-               (__runtimePlatform == win32) ? "0x%06I64X" : "0x%06llX",
+               (__runtimePlatform == win32) ? "#%06I64X" : "#%06llX",
                constant.i);
             out.Print(number);
          }
@@ -532,26 +640,41 @@ public:
          out.Print("DateTime { '", dateString, "' }");
          delete dateString;
       }
-      else out.Print(constant);
+      else if(constant.type.type == integer && (constant.type.format == hex || constant.type.format == color))
+      {
+         out.Print("#");
+         out.Printf(FORMAT64HEX, constant.i);
+      }
+      else
+         out.Print(constant);
+
+      if(unit)
+      {
+         out.Print(" ");
+         unit.print(out, indent, o);
+      }
    }
 
-   CartoSymExpConstant ::parse(CartoSymLexer lexer)
+   CQL2ExpConstant ::parse(CQL2Lexer lexer)
    {
-      CartoSymExpConstant result = null;
-      CartoSymToken token = lexer.readToken();
+      CQL2ExpConstant result = null;
+      CQL2Token token = lexer.readToken();
+      bool hashTag = !lexer.strictCQL2 && token.text[0] == '#';
       // check token, if starts with quote or contains comma... parse to know type, integer string etc,... set i s or r
-      // no text here, use CartoSymexpstring
+      // no text here, use CQL2ExpString
 
-      if(isdigit(token.text[0]))
+      if(hashTag || isdigit(token.text[0]))
       {
          int multiplier = 1;
          int len = strlen(token.text);
 
+         // REVIEW: Not in CartoSym-CSS / CQL2
          if(token.text[len-1] == 'K') multiplier = 1000;
          else if(token.text[len-1] == 'M') multiplier = 1000000;
 
-         if(strchr(token.text, '.') ||
-            ((token.text[0] != '0' || token.text[1] != 'x') && (strchr(token.text, 'E') || strchr(token.text, 'e'))))
+         if(!hashTag && (
+            strchr(token.text, '.') ||
+            ((token.text[0] != '0' || token.text[1] != 'x') && (strchr(token.text, 'E') || strchr(token.text, 'e')))))
          {
             result = { constant = { r = strtod(token.text, null) * multiplier, type.type = real } };
             if(strchr(token.text, 'E') || strchr(token.text, 'e'))
@@ -559,27 +682,45 @@ public:
          }
          else
          {
-            result = { constant = { i = strtoll(token.text, null, 0) * multiplier, type.type = integer} };
-            if(strstr(token.text, "0x"))
+            result = { constant = {
+               i = strtoll(token.text + (int)hashTag, null, hashTag ? 16 : 0) * multiplier,
+               type.type = integer
+            } };
+            if(hashTag || strstr(token.text, "0x"))
                result.constant.type.format = hex;
             else if(strstr(token.text, "b"))
                result.constant.type.format = binary;
             else if(token.text[0] == '0' && isdigit(token.text[1]))
                result.constant.type.format = octal;
          }
+
+         if(!lexer.strictCQL2 && (token = lexer.peekToken()).type == identifier)
+         {
+            const String id = token.text;
+            if(!strcmpi(id, "px") ||
+               !strcmpi(id, "m") ||
+               !strcmpi(id, "ft") ||
+               !strcmpi(id, "pc") ||
+               !strcmpi(id, "pt") ||
+               !strcmpi(id, "em") ||
+               !strcmpi(id, "in") ||
+               !strcmpi(id, "cm") ||
+               !strcmpi(id, "mm"))
+               result.unit = CQL2Identifier::parse(lexer);
+         }
       }
       return result;
    }
 
-   CartoSymExpConstant copy()
+   CQL2ExpConstant copy()
    {
-      CartoSymExpConstant e { constant = constant, expType = expType, destType = destType };
+      CQL2ExpConstant e { constant = constant, expType = expType, destType = destType };
       if(e.constant.type.type == text && e.constant.type.mustFree)
          e.constant.s = CopyString(e.constant.s);
       return e;
    }
 
-   ExpFlags compute(FieldValue value, ECCSSEvaluator evaluator, ComputeType computeType, Class stylesClass)
+   ExpFlags compute(FieldValue value, CQL2Evaluator evaluator, ComputeType computeType, Class instClass)
    {
       value = constant;
       switch(value.type.type)
@@ -590,41 +731,48 @@ public:
       return ExpFlags { resolved = true };
    }
 
-   ~CartoSymExpConstant()
+   ~CQL2ExpConstant()
    {
       if(constant.type.mustFree == true && constant.type.type == text )
          delete constant.s;
+      delete unit;
    }
 }
 
-public class CartoSymExpString : CartoSymExpression
+public class CQL2ExpString : CQL2Expression
 {
 public:
    String string;
 
-   void print(File out, int indent, CartoSymOutputOptions o)
+   void print(File out, int indent, CQL2OutputOptions o)
    {
+      /*
       int len = strlen(string) * 2 + 1;
       String buf = new char[len];
       EscapeCString(buf, len, string, { escapeSingleQuote = true });
+      */
+
+      String buf = copyEscapeCQL2(string);
       out.Print('\'', buf, '\'');
       delete buf;
    }
 
-   CartoSymExpString ::parse(CartoSymLexer lexer)
+   CQL2ExpString ::parse(CQL2Lexer lexer)
    {
       int len;
       String s;
       lexer.readToken();
       len = strlen(lexer.token.text)-2;  // len source string length for UnescapeCString()
       s = new char[len+1];
-      len = UnescapeCString(s, lexer.token.text+1, len);
+      // len = UnescapeCString(s, lexer.token.text+1, len);
+      len = UnescapeCQL2String(s, lexer.token.text+1, len);
       s = renew s char[len+1];
       // memcpy(s, lexer.token.text+1, len);
       // s[len] = 0;
       return { string = s };
    }
-   ExpFlags compute(FieldValue value, ECCSSEvaluator evaluator, ComputeType computeType, Class stylesClass)
+
+   ExpFlags compute(FieldValue value, CQL2Evaluator evaluator, ComputeType computeType, Class instClass)
    {
       value.s = string;
       value.type = { type = text };
@@ -632,27 +780,27 @@ public:
       return ExpFlags { resolved = true };
    }
 
-   CartoSymExpString copy()
+   CQL2ExpString copy()
    {
-      CartoSymExpString e { string = CopyString(string), expType = expType, destType = destType };
+      CQL2ExpString e { string = CopyString(string), expType = expType, destType = destType };
       return e;
    }
 
-   ~CartoSymExpString()
+   ~CQL2ExpString()
    {
       delete string;
    }
 }
 
-public class CartoSymExpIdentifier : CartoSymExpression
+public class CQL2ExpIdentifier : CQL2Expression
 {
 public:
-   CartoSymIdentifier identifier;
+   CQL2Identifier identifier;
    int fieldID;
 
-   CartoSymExpIdentifier copy()
+   CQL2ExpIdentifier copy()
    {
-      CartoSymExpIdentifier e
+      CQL2ExpIdentifier e
       {
          identifier = identifier.copy(),
          fieldID = fieldID, // TOCHECK: Should we copy fieldID here ?
@@ -661,22 +809,22 @@ public:
       return e;
    }
 
-   void print(File out, int indent, CartoSymOutputOptions o)
+   void print(File out, int indent, CQL2OutputOptions o)
    {
       identifier.print(out, indent, o);
    }
 
-   CartoSymExpIdentifier ::parse(CartoSymLexer lexer)
+   CQL2ExpIdentifier ::parse(CQL2Lexer lexer)
    {
-      return { identifier = CartoSymIdentifier::parse(lexer) };
+      return { identifier = CQL2Identifier::parse(lexer) };
    }
 
-   ExpFlags compute(FieldValue value, ECCSSEvaluator evaluator, ComputeType computeType, Class stylesClass)
+   ExpFlags compute(FieldValue value, CQL2Evaluator evaluator, ComputeType computeType, Class instClass)
    {
       //Class c = destType ? destType : class(FieldValue); //filler
-      //bool *(* onGetDataFromString)(Class, void *, const char *) = destType._vTbl[__ecereVMethodID_class_OnGetDataFromString];
+      //bool *(* onGetDataFromString)(Class, void *, const char *) = destType._vTbl[__eCVMethodID_class_OnGetDataFromString];
       ExpFlags flags { };
-      //bool (* onGetDataFromString)(void *, void *, const char *) = (void *)destType._vTbl[__ecereVMethodID_class_OnGetDataFromString];
+      //bool (* onGetDataFromString)(void *, void *, const char *) = (void *)destType._vTbl[__eCVMethodID_class_OnGetDataFromString];
       if(computeType == preprocessing && identifier.string)
       {
          if(!strcmpi(identifier.string, "null"))
@@ -700,7 +848,7 @@ public:
          {
             //awaiting special code here
             //enum will be an int if not color
-            bool (* onGetDataFromString)(void *, void *, const char *) = (void *)destType._vTbl[__ecereVMethodID_class_OnGetDataFromString];
+            bool (* onGetDataFromString)(void *, void *, const char *) = (void *)destType._vTbl[__eCVMethodID_class_OnGetDataFromString];
 
             if(destType == class(Color))
             {
@@ -747,77 +895,26 @@ public:
       return flags;
    }
 
-   CartoSymExpIdentifier()
+   CQL2ExpIdentifier()
    {
       fieldID = -1;
    }
 
-   ~CartoSymExpIdentifier()
+   ~CQL2ExpIdentifier()
    {
       delete identifier;
    }
 }
 
-public class CartoSymExpOperation : CartoSymExpression
+public class CQL2ExpOperation : CQL2Expression
 {
 public:
-   CartoSymTokenType op;
-   CartoSymExpression exp1, exp2;
+   CQL2TokenType op;
+   CQL2Expression exp1, exp2;
+   bool isExp;
    bool falseNullComparisons;
 
-   CartoSymExpOperation copy()
-   {
-      CartoSymExpOperation e
-      {
-         op = op,
-         exp1 = exp1 ? exp1.copy() : null,
-         exp2 = exp2 ? exp2.copy() : null,
-         expType = expType, destType = destType,
-         falseNullComparisons = falseNullComparisons
-      };
-      return e;
-   }
-
-   void print(File out, int indent, CartoSymOutputOptions o)
-   {
-      if(exp1)
-      {
-         if(exp1._class == (void *)(uintptr)0xecececececececec)
-            out.Print("<freed exp>");
-         else
-            exp1.print(out, indent, o);
-         if(exp2) out.Print(" ");
-      }
-      op.print(out, indent, o);
-      if(exp2)
-      {
-         if(exp1 || op == bitNot) out.Print(" ");
-
-         if(exp2._class == (void *)(uintptr)0xecececececececec)
-            out.Print("<freed exp>");
-         else
-            exp2.print(out, indent, o);
-      }
-   }
-
-   CartoSymExpression ::parse(int prec, CartoSymLexer lexer)
-   {
-      CartoSymExpression exp = (prec > 0) ? parse(prec-1, lexer) : parseUnaryExpression(lexer);
-      while(isPrecedence(lexer.peekToken().type, prec))
-      {
-         CartoSymTokenType op = lexer.readToken().type;
-         if(exp || op.isUnaryOperator)
-         {
-            exp = CartoSymExpOperation { exp1 = exp, op = op, exp2 = (prec > 0) ? parse(prec-1, lexer) : parseUnaryExpression(lexer) };
-         }
-         else
-            // Syntax error: binary operator with only right operand
-            delete exp;
-      }
-      return exp;
-   }
-
-   ExpFlags compute(FieldValue value, ECCSSEvaluator evaluator, ComputeType computeType, Class stylesClass) //float
+   ExpFlags compute(FieldValue value, CQL2Evaluator evaluator, ComputeType computeType, Class instClass) //float
    {
       ExpFlags flags { };
 
@@ -833,24 +930,24 @@ public:
          // TODO: Review this (inheritance of parent expression dest type?)
          exp1.destType = destType;
 
-         flags1 = exp1.compute(val1, evaluator, computeType, stylesClass);
+         flags1 = exp1.compute(val1, evaluator, computeType, instClass);
          if(!(flags1.resolved && op == and && val1.type.type == integer && !val1.i)) // Lazy AND evaluation
             flags2 = exp2.compute(val2, evaluator,
-               computeType == runtime && !flags1.resolved && op == and ? preprocessing : computeType, stylesClass);
+               computeType == runtime && !flags1.resolved && op == and ? preprocessing : computeType, instClass);
          flags = flags1 | flags2;
 
          if(op == in)
          {
-            CartoSymList<CartoSymExpression> l = (CartoSymList<CartoSymExpression>)exp2;
-            if(l && l._class == class(CartoSymExpBrackets))
+            CQL2List<CQL2Expression> l = (CQL2List<CQL2Expression>)exp2;
+            if(l && l._class == class(CQL2ExpBrackets))
             {
-               l = ((CartoSymExpBrackets)l).list;
+               l = ((CQL2ExpBrackets)l).list;
             }
-            else if(l && l._class == class(CartoSymExpArray))
+            else if(l && l._class == class(CQL2ExpArray))
             {
-               l = ((CartoSymExpArray)l).elements;
+               l = ((CQL2ExpArray)l).elements;
             }
-            if(l && eClass_IsDerived(l._class, class(CartoSymList<CartoSymExpression>)))
+            if(l && eClass_IsDerived(l._class, class(CQL2List<CQL2Expression>)))
             {
                FieldValue v { type = { type = nil } };
                FieldValue v1 { };
@@ -859,9 +956,9 @@ public:
 
                for(e : l.list)
                {
-                  CartoSymExpression ne = e;
+                  CQL2Expression ne = e;
                   FieldValue v2 { type = { type = nil } };
-                  ExpFlags f2 = ne.compute(v2, evaluator, computeType, stylesClass);
+                  ExpFlags f2 = ne.compute(v2, evaluator, computeType, instClass);
                   if(flags1.resolved && v1.type.type != nil)
                   {
                      if(f2.resolved)
@@ -1018,7 +1115,7 @@ public:
       else if(exp2)
       {
          FieldValue val2 { };
-         ExpFlags flags2 = exp2.compute(val2, evaluator, computeType, stylesClass);
+         ExpFlags flags2 = exp2.compute(val2, evaluator, computeType, instClass);
          OpTable * tbl = &opTables[val2.type.type];
          flags = flags2;
          if(flags2.resolved)
@@ -1046,64 +1143,163 @@ public:
       return flags;
    }
 
-   ~CartoSymExpOperation()
+   CQL2ExpOperation copy()
+   {
+      CQL2ExpOperation e
+      {
+         op = op,
+         exp1 = exp1 ? exp1.copy() : null,
+         exp2 = exp2 ? exp2.copy() : null,
+         expType = expType, destType = destType,
+         falseNullComparisons = falseNullComparisons
+      };
+      return e;
+   }
+
+   void print(File out, int indent, CQL2OutputOptions o)
+   {
+      CQL2ExpIdentifier exp2Id = exp2 && exp2._class == class(CQL2ExpIdentifier) ? (CQL2ExpIdentifier)exp2 : null;
+      if(exp1)
+      {
+         if(exp1._class == (void *)(uintptr)0xecececececececec)
+            out.Print("<freed exp>");
+         else
+            exp1.print(out, indent, o);
+         if(exp2) out.Print(" ");
+      }
+      if((op == equal || op == notEqual) && exp2Id && exp2Id.identifier && exp2Id.identifier.string &&
+         !strcmpi(exp2Id.identifier.string, "null"))
+         out.Print(op == equal ? "IS" : "IS NOT");
+      else
+         op.print(out, indent, o);
+      if(exp2)
+      {
+         if(exp1 || op == bitNot ||
+            (op == not && (exp2._class != class(CQL2ExpOperation) && exp2._class != class(CQL2ExpBrackets))))
+            out.Print(" ");
+         if(op == not && exp2._class == class(CQL2ExpOperation))
+         {
+            out.Print("(");
+            Print("WARNING: This should be in parentheses");
+         }
+
+         if(exp2._class == (void *)(uintptr)0xecececececececec)
+            out.Print("<freed exp>");
+         else
+            exp2.print(out, indent, o);
+
+         if(op == not && exp2._class == class(CQL2ExpOperation))
+            out.Print(")");
+      }
+   }
+
+   CQL2Expression ::parse(int prec, CQL2Lexer lexer)
+   {
+      CQL2Expression exp = (prec > 0) ? parse(prec-1, lexer) : parseTupleOrUnaryExpression(lexer);
+      while(isPrecedence(lexer.peekToken().type, prec))
+      {
+         CQL2TokenType op = lexer.readToken().type;
+         if(exp || op.isUnaryOperator)
+         {
+            if(op == not)
+            {
+               op = lexer.peekToken().type;
+               if(op == between || op == like || op == in)
+               {
+                  CQL2ExpOperation expOp { exp1 = exp, op = op == between ? notBetween : op == like ? notLike : notIn };
+                  lexer.readToken();
+                  expOp.exp2 = (prec > 0) ? parse(prec-1, lexer) : parseUnaryExpression(lexer);
+                  exp = expOp;
+               }
+               else
+                  // Syntax error
+                  delete exp;
+            }
+            else
+            {
+               CQL2ExpOperation expOp { exp1 = exp, op = op };
+               if(op == is)
+               {
+                  if(lexer.peekToken().type == not)
+                  {
+                     expOp.op = notEqual;
+                     lexer.readToken();
+                  }
+                  else
+                     expOp.op = equal;
+                  expOp.isExp = true;
+               }
+               expOp.exp2 = (prec > 0) ? parse(prec-1, lexer) : parseUnaryExpression(lexer);
+               exp = expOp;
+               if(!expOp.exp2)
+                  delete exp; // Syntax error: missing 2nd operand
+            }
+         }
+         else
+            // Syntax error: binary operator with only right operand
+            delete exp;
+      }
+      return exp;
+   }
+
+   ~CQL2ExpOperation()
    {
       delete exp1;
       delete exp2;
    }
 }
 
-public class CartoSymExpBrackets : CartoSymExpression
+public class CQL2ExpBrackets : CQL2Expression
 {
 public:
-   CartoSymExpList list;
+   CQL2ExpList list;
 
-   void print(File out, int indent, CartoSymOutputOptions o)
-   {
-      out.Print("(");
-      if(list) list.print(out, indent, o);
-      out.Print(")");
-   }
-
-   CartoSymExpBrackets copy()
-   {
-      return CartoSymExpBrackets { list = list.copy(), expType = expType, destType = destType };
-   }
-
-   ExpFlags compute(FieldValue value, ECCSSEvaluator evaluator, ComputeType computeType, Class stylesClass)
+   ExpFlags compute(FieldValue value, CQL2Evaluator evaluator, ComputeType computeType, Class instClass)
    {
       ExpFlags flags = 0;
       if(list)
       {
-         Iterator<CartoSymExpression> last { container = list, pointer = list.GetLast() };
-         CartoSymExpression lastExp = last.data;
+         Iterator<CQL2Expression> last { container = list, pointer = list.GetLast() };
+         CQL2Expression lastExp = last.data;
          if(lastExp)
          {
             lastExp.destType = destType;
-            flags = lastExp.compute(value, evaluator, computeType, stylesClass);
+            flags = lastExp.compute(value, evaluator, computeType, instClass);
             expType = lastExp.expType;
          }
       }
       return flags;
    }
 
-   ~CartoSymExpBrackets()
+   void print(File out, int indent, CQL2OutputOptions o)
+   {
+      out.Print("(");
+      if(list) list.print(out, indent, o);
+      out.Print(")");
+   }
+
+   CQL2ExpBrackets copy()
+   {
+      return CQL2ExpBrackets { list = list.copy(), expType = expType, destType = destType };
+   }
+
+   ~CQL2ExpBrackets()
    {
       delete list;
    }
 }
 
-public class CartoSymExpConditional : CartoSymExpression
+public class CQL2ExpConditional : CQL2Expression
 {
 public:
-   CartoSymExpression condition;
-   CartoSymExpList expList;
-   CartoSymExpression elseExp;
+   CQL2Expression condition;
+   CQL2ExpList expList;
+   CQL2Expression elseExp;
    bool result; // Work-around for simplifyResolved() challenges not having access to computed condition FieldValue
 
-   CartoSymExpConditional copy()
+   CQL2ExpConditional copy()
    {
-      CartoSymExpConditional e
+      CQL2ExpConditional e
       {
          condition = condition ? condition.copy() : null,
          expList = expList ? expList.copy() : null,
@@ -1113,7 +1309,7 @@ public:
       return e;
    }
 
-   void print(File out, int indent, CartoSymOutputOptions o)
+   void print(File out, int indent, CQL2OutputOptions o)
    {
       if(condition) condition.print(out, indent, o);
       out.Print(" ? ");
@@ -1123,24 +1319,24 @@ public:
          elseExp.print(out, indent, o);
    }
 
-   CartoSymExpression ::parse(CartoSymLexer lexer)
+   CQL2Expression ::parse(CQL2Lexer lexer)
    {
-      CartoSymExpression exp = CartoSymExpOperation::parse(numPrec-1, lexer);
+      CQL2Expression exp = CQL2ExpOperation::parse(numPrec-1, lexer);
       if(lexer.peekToken().type == '?')
       {
          lexer.readToken();
-         exp = CartoSymExpConditional { condition = exp, expList = CartoSymExpList::parse(lexer) };
+         exp = CQL2ExpConditional { condition = exp, expList = CQL2ExpList::parse(lexer) };
          if(lexer.peekToken().type == ':')
          {
             lexer.readToken();
-            ((CartoSymExpConditional)exp).elseExp = CartoSymExpConditional::parse(lexer);
-            if(!((CartoSymExpConditional)exp).elseExp)
+            ((CQL2ExpConditional)exp).elseExp = CQL2ExpConditional::parse(lexer);
+            if(!((CQL2ExpConditional)exp).elseExp)
                delete exp;
          }
          else
          {
 #ifdef _DEBUG
-            PrintLn("ECCSS Syntax Error: Conditional expression missing else condition ",
+            PrintLn("CQL2-Text/CartoSym-CSS Syntax Error: Conditional expression missing else condition ",
                " at line ", lexer.pos.line, ", column ", lexer.pos.col);
 #endif
             delete exp; // Syntax error
@@ -1149,28 +1345,28 @@ public:
       return exp;
    }
 
-   ExpFlags compute(FieldValue value, ECCSSEvaluator evaluator, ComputeType computeType, Class stylesClass)
+   ExpFlags compute(FieldValue value, CQL2Evaluator evaluator, ComputeType computeType, Class instClass)
    {
       // RVVIEW: computeType ignored here ?
       ExpFlags flags = 0;
       FieldValue condValue { };
-      ExpFlags flagsCond = condition.compute(condValue, evaluator, computeType, stylesClass);
+      ExpFlags flagsCond = condition.compute(condValue, evaluator, computeType, instClass);
       if(flagsCond.resolved)
       {
          result = (bool)condValue.i;
          if(condValue.i)
          {
-            CartoSymExpression last = expList.lastIterator.data;   // CartoSym Only currently supports a single expression...
+            CQL2Expression last = expList.lastIterator.data;   // CS Only currently supports a single expression...
             if(last)
             {
                last.destType = destType;
-               flags = last.compute(value, evaluator, computeType, stylesClass);
+               flags = last.compute(value, evaluator, computeType, instClass);
                if(!expType) expType = last.expType;
             }
          }
          else
          {
-            flags = elseExp.compute(value, evaluator, computeType, stylesClass);
+            flags = elseExp.compute(value, evaluator, computeType, instClass);
             if(elseExp && !expType) expType = elseExp.expType;
          }
          if(!flags.resolved && computeType == preprocessing)   // REVIEW: Do we avoid simplifyResolved() at runtime so as to not modify expressions?
@@ -1179,15 +1375,15 @@ public:
       }
       else
       {
-         CartoSymExpression last = expList.lastIterator.data;   // CartoSym Only currently supports a single expression...
+         CQL2Expression last = expList.lastIterator.data;   // CS Only currently supports a single expression...
          FieldValue val1 { };
          FieldValue val2 { };
          ExpFlags flags1;
          ExpFlags flags2;
          if(last) last.destType = destType;
          if(elseExp) elseExp.destType = destType;
-         flags1 = last ? last.compute(val1, evaluator, computeType, stylesClass) : 0;
-         flags2 = elseExp ? elseExp.compute(val2, evaluator, computeType, stylesClass) : 0;
+         flags1 = last ? last.compute(val1, evaluator, computeType, instClass) : 0;
+         flags2 = elseExp ? elseExp.compute(val2, evaluator, computeType, instClass) : 0;
 
          flags = (flagsCond | flags1 | flags2) & ~ ExpFlags { resolved = true };
          if(flags1.resolved)
@@ -1202,7 +1398,7 @@ public:
       return flags;
    }
 
-   ~CartoSymExpConditional()
+   ~CQL2ExpConditional()
    {
       delete condition;
       delete expList;
@@ -1210,19 +1406,19 @@ public:
    }
 }
 
-public class CartoSymExpIndex : CartoSymExpression
+public class CQL2ExpIndex : CQL2Expression
 {
 public:
-   CartoSymExpression exp;
-   CartoSymExpList index;
+   CQL2Expression exp;
+   CQL2ExpList index;
 
-   CartoSymExpIndex copy()
+   CQL2ExpIndex copy()
    {
-      CartoSymExpIndex e { exp = exp.copy(), index = index.copy(), expType = expType, destType = destType };
+      CQL2ExpIndex e { exp = exp.copy(), index = index.copy(), expType = expType, destType = destType };
       return e;
    }
 
-   void print(File out, int indent, CartoSymOutputOptions o)
+   void print(File out, int indent, CQL2OutputOptions o)
    {
       if(exp) exp.print(out, indent, o);
       out.Print("[");
@@ -1230,36 +1426,36 @@ public:
       out.Print("]");
    }
 
-   CartoSymExpIndex ::parse(CartoSymExpression e, CartoSymLexer lexer)
+   CQL2ExpIndex ::parse(CQL2Expression e, CQL2Lexer lexer)
    {
-      CartoSymExpIndex exp;
+      CQL2ExpIndex exp;
       lexer.readToken();
-      exp = CartoSymExpIndex { exp = e, index = CartoSymExpList::parse(lexer) };
+      exp = CQL2ExpIndex { exp = e, index = CQL2ExpList::parse(lexer) };
       if(lexer.peekToken().type == ']')
          lexer.readToken();
       return exp;
    }
-   ExpFlags compute(FieldValue value, ECCSSEvaluator evaluator, ComputeType computeType, Class stylesClass)
+   ExpFlags compute(FieldValue value, CQL2Evaluator evaluator, ComputeType computeType, Class instClass)
    {
       ExpFlags flags { };
       //value = exp.compute;
       return flags;
    }
 
-   ~CartoSymExpIndex()
+   ~CQL2ExpIndex()
    {
       delete exp;
       delete index;
    }
 }
 
-public class CartoSymExpMember : CartoSymExpression
+public class CQL2ExpMember : CQL2Expression
 {
 public:
-   CartoSymExpression exp;
-   CartoSymIdentifier member;
+   CQL2Expression exp;
+   CQL2Identifier member;
 
-   void print(File out, int indent, CartoSymOutputOptions o)
+   void print(File out, int indent, CQL2OutputOptions o)
    {
       if(exp) exp.print(out, indent, o);
       out.Print(".");
@@ -1267,26 +1463,26 @@ public:
          member.print(out, indent, o);
    }
 
-   CartoSymExpMember copy()
+   CQL2ExpMember copy()
    {
-      CartoSymExpMember e { exp = exp.copy(), member = member.copy(), expType = expType, destType = destType };
+      CQL2ExpMember e { exp = exp.copy(), member = member.copy(), expType = expType, destType = destType };
       return e;
    }
 
-   CartoSymExpMember ::parse(CartoSymExpression e, CartoSymLexer lexer)
+   CQL2ExpMember ::parse(CQL2Expression e, CQL2Lexer lexer)
    {
       lexer.readToken();
-      return { exp = e, member = CartoSymIdentifier::parse(lexer) };
+      return { exp = e, member = CQL2Identifier::parse(lexer) };
    }
-   ExpFlags compute(FieldValue value, ECCSSEvaluator evaluator, ComputeType computeType, Class stylesClass)
+   ExpFlags compute(FieldValue value, CQL2Evaluator evaluator, ComputeType computeType, Class instClass)
    {
       ExpFlags flags { };
       FieldValue val { };
-      ExpFlags expFlg = exp.compute(val, evaluator, computeType, stylesClass);
+      ExpFlags expFlg = exp.compute(val, evaluator, computeType, instClass);
       // REVIEW: Can we check for runtime here?
       // REVIEW: If the expression is really resolved during preprocessing, it might be possible to compute it already,
       //         but some scenarios might not yet be handled properly
-      if(expFlg.resolved && evaluator != null && computeType == runtime && exp.expType)
+      if(expFlg.resolved && evaluator != null && (!expType || computeType == runtime) && exp.expType)
       {
          // FIXME: Can we compute this prop and save it in class to compute it only during preprocessing?
          DataMember prop = eClass_FindDataMember(exp.expType, member.string, exp.expType.module, null, null);
@@ -1296,7 +1492,17 @@ public:
          }
          // This is not right, the type of the member is different...: expType = exp.expType;
          if(prop)
+         {
+            if(!prop.dataTypeClass)
+               prop.dataTypeClass = eSystem_FindClass(__thisModule.application, prop.dataTypeString);
+            expType = prop.dataTypeClass;
+
             evaluator.evaluatorClass.evaluateMember(evaluator, prop, exp, val, value, &flags);
+
+            if(computeType != runtime)
+               expFlg.resolved = false;
+            flags = expFlg;
+         }
          else
          {
             flags.invalid = true;
@@ -1313,44 +1519,20 @@ public:
       return flags;
    }
 
-   ~CartoSymExpMember()
+   ~CQL2ExpMember()
    {
       delete exp;
       delete member;
    }
 }
 
-public class CartoSymExpCall : CartoSymExpression
+public class CQL2ExpCall : CQL2Expression
 {
 public:
-   CartoSymExpression exp;
-   CartoSymExpList arguments;
+   CQL2Expression exp;
+   CQL2ExpList arguments;
 
-   void print(File out, int indent, CartoSymOutputOptions o)
-   {
-      if(exp) exp.print(out, indent, o);
-      out.Print("(");
-      if(arguments) arguments.print(out, indent, o);
-      out.Print(")");
-   }
-
-   CartoSymExpCall copy()
-   {
-      CartoSymExpCall e { exp = exp.copy(), arguments = arguments.copy(), expType = expType, destType = destType };
-      return e;
-   }
-
-   CartoSymExpCall ::parse(CartoSymExpression e, CartoSymLexer lexer)
-   {
-      CartoSymExpCall exp;
-      lexer.readToken();
-      exp = CartoSymExpCall { exp = e, arguments = CartoSymExpList::parse(lexer) };
-      if(lexer.peekToken().type == ')')
-         lexer.readToken();
-      return exp;
-   }
-
-   ExpFlags compute(FieldValue value, ECCSSEvaluator evaluator, ComputeType computeType, Class stylesClass)
+   ExpFlags compute(FieldValue value, CQL2Evaluator evaluator, ComputeType computeType, Class instClass)
    {
       ExpFlags flags { };
 
@@ -1360,31 +1542,31 @@ public:
          FieldValue expValue { type = { nil } };
          FieldValue args[50]; // Max 50 args for now?
          int i, numArgs = 0;
-         subclass(ECCSSEvaluator) evaluatorClass = evaluator.evaluatorClass;
+         subclass(CQL2Evaluator) evaluatorClass = evaluator.evaluatorClass;
 
          if(computeType == preprocessing)
             exp.destType = class(GlobalFunction);
 
-         flags |= exp.compute(expValue, evaluator, computeType, stylesClass);
+         flags |= exp.compute(expValue, evaluator, computeType, instClass);
          if(arguments)
          {
             bool nonResolved = false;
-            Link<CartoSymExpression> a;
+            Link<CQL2Expression> a;
 
             flags.resolved = false;
             if(computeType == preprocessing)
                expType = evaluatorClass.resolveFunction(evaluator, expValue, arguments, &flags, destType);
                                                                      // WARNING: This may not be enough for interpolate() / map()
-            for(a = (Link<CartoSymExpression>)arguments.list.first; a && numArgs < 50; a = a.next)
+            for(a = (Link<CQL2Expression>)arguments.list.first; a && numArgs < 50; a = a.next)
             {
-               CartoSymExpression arg = (CartoSymExpression)(uintptr)*&a.data;
+               CQL2Expression arg = (CQL2Expression)(uintptr)*&a.data;
                FieldValue * argV = &args[numArgs++];
                flags.resolved = false;
 
                *argV = { }; // FIXME: compute() sometimes returns uninitialized value
-               flags |= arg.compute(argV, evaluator, computeType, stylesClass);
+               flags |= arg.compute(argV, evaluator, computeType, instClass);
 
-               // NOTE: for interpolation handling use color format, ECCSSEvaluator_computeFunction does not have access to destType
+               // NOTE: for interpolation handling use color format, CQL2Evaluator_computeFunction does not have access to destType
                if(destType == class(Color) && argV->type == { integer, format = hex })
                   argV->type = { integer, format = color };
                if(!flags.resolved)
@@ -1404,36 +1586,78 @@ public:
       return flags;
    }
 
-   ~CartoSymExpCall()
+   void print(File out, int indent, CQL2OutputOptions o)
+   {
+      if(exp) exp.print(out, indent, o);
+      out.Print("(");
+      if(arguments) arguments.print(out, indent, o);
+      out.Print(")");
+   }
+
+   CQL2ExpCall copy()
+   {
+      CQL2ExpCall e { exp = exp.copy(), arguments = arguments.copy(), expType = expType, destType = destType };
+      return e;
+   }
+
+   CQL2ExpCall ::parse(CQL2Expression e, CQL2Lexer lexer)
+   {
+      /* NOTE: for WKT types, increment a wktContext counter variable, and decrement once we get out
+      then the unaryOperator check in parseTupleOrPostfix would only be considered if that is > 0*/
+      CQL2ExpCall exp;
+      bool isWKT = false;
+      String str = e.toString(0);
+      lexer.readToken();
+
+      if(!strcmpi(str, "polygon") || !strcmpi(str, "point") || !strcmpi(str, "bbox") ||
+         !strcmpi(str, "lineString") || !strcmpi(str, "multipolygon") || !strcmpi(str, "multipoint") ||
+         !strcmpi(str, "multilinestring"))
+      {
+         isWKT = true;
+         lexer.wktContext++;
+      }
+      exp = CQL2ExpCall { exp = e, arguments = CQL2ExpList::parse(lexer) };
+      if(lexer.peekToken().type == ')')
+         lexer.readToken();
+      if(isWKT)
+         lexer.wktContext--;
+      delete str;
+      return exp;
+   }
+
+   ~CQL2ExpCall()
    {
       delete exp;
       delete arguments;
    }
 }
 
-public class CartoSymExpArray : CartoSymExpression
+public class CQL2ExpArray : CQL2Expression
 {
 public:
-   CartoSymList<CartoSymExpression> elements;
+   CQL2ExpList elements;
    Array array;
 
-   CartoSymExpArray copy()
+   CQL2ExpArray copy()
    {
-      CartoSymExpArray e { elements = elements.copy(), expType = expType, destType = destType };
+      CQL2ExpArray e { elements = elements.copy(), expType = expType, destType = destType };
       return e;
    }
 
-   CartoSymExpArray ::parse(CartoSymLexer lexer)
+   CQL2ExpArray ::parse(CQL2Lexer lexer)
    {
-      CartoSymExpArray exp { };
+      // Currently handled by parsePrimaryExpression() instead
+      CQL2ExpArray exp { };
       lexer.readToken();
-      exp.elements = (CartoSymList<CartoSymExpression>)CartoSymList::parse(class(CartoSymList<CartoSymExpression>), lexer, CartoSymExpression::parse, ',');
-      if(lexer.peekToken().type == ']')
+      exp.elements = CQL2ExpList::parse(lexer);
+      // REVIEW:
+      // exp.elements = (CQL2List<CQL2Expression>)CQL2List::parse(class(CQL2List<CQL2Expression>), lexer, CQL2Expression::parse, ',');
+      if(lexer.peekToken().type == ')' || lexer.peekToken().type == ']')
          lexer.readToken();
       return exp;
    }
 
-   void print(File out, int indent, CartoSymOutputOptions o)
+   void print(File out, int indent, CQL2OutputOptions o)
    {
       Class type = expType ? expType : destType;
       ClassTemplateArgument * a = type ? &type.templateArgs[0] : null;
@@ -1442,15 +1666,15 @@ public:
 
       if(!count || !et || (et.type != structClass && et.type != normalClass))
       {
-         out.Print("[ ");
+         out.Print(o.strictCQL2 ? "(" : "[ ");
          if(elements) elements.print(out, indent, o);
-         out.Print(" ]");
+         out.Print(o.strictCQL2 ? ")" : " ]");
       }
       else
       {
          int i = 0;
 
-         out.PrintLn("[");
+         out.PrintLn(o.strictCQL2 ? "(" : "[");
          indent++;
          for(e : elements)
          {
@@ -1461,11 +1685,11 @@ public:
          }
          indent--;
          printIndent(indent, out);
-         out.Print("]");
+         out.Print(o.strictCQL2 ? ")" : "]");
       }
    }
 
-   ExpFlags compute(FieldValue value, ECCSSEvaluator evaluator, ComputeType computeType, Class stylesClass)
+   ExpFlags compute(FieldValue value, CQL2Evaluator evaluator, ComputeType computeType, Class instClass)
    {
       ExpFlags flags { };
       bool resolved = true;
@@ -1477,7 +1701,7 @@ public:
 
       if(!type && elements)
       {
-         CartoSymExpression e0 = elements[0];
+         CQL2Expression e0 = elements[0];
          if(e0)
          {
             Class c;
@@ -1507,6 +1731,9 @@ public:
          */
       }
 
+      if(type && type == class(FieldValue))
+         type = class(Array<FieldValue>);
+
       if(type && computeType == runtime && elements)
       {
          if(type.templateClass == class(Container))
@@ -1528,7 +1755,7 @@ public:
 
       for(e : elements)
       {
-         CartoSymExpression exp = e;
+         CQL2Expression exp = e;
          FieldValue v { };
          ExpFlags flg;
 
@@ -1543,7 +1770,13 @@ public:
 
             if(computeType == runtime && flg.resolved && array)
             {
-               if(v.type.type == real)
+               if(c == class(FieldValue))
+               {
+                  Iterator<FieldValue> it { (Array<FieldValue>)array };
+                  if(it.Index(i, true))
+                     it.SetData(v);
+               }
+               else if(v.type.type == real)
                {
                   if(c && (c.type == enumClass || c.type == bitClass || c.type == systemClass || c.type == unitClass))
                   {
@@ -1608,7 +1841,7 @@ public:
       if(computeType == runtime)
       {
          if(resolved)
-            value = { type = { blob }, b = array };
+            value = { type = { array }, a = (Array<FieldValue>)array };
          flags.resolved = resolved;
       }
       else
@@ -1618,17 +1851,14 @@ public:
       return flags;
    }
 
-   ~CartoSymExpArray()
+   ~CQL2ExpArray()
    {
       delete elements;
       delete array;
    }
 }
 
-extern int __ecereVMethodID_class_OnCopy;
-extern int __ecereVMethodID_class_OnFree;
-
-public class CartoSymExpInstance : CartoSymExpression
+public class CQL2ExpInstance : CQL2Expression
 {
    property bool printsAsMultiline
    {
@@ -1645,19 +1875,19 @@ public class CartoSymExpInstance : CartoSymExpression
       }
    }
 public:
-   CartoSymInstantiation instance;
-   StylesMask targetMask;
+   CQL2Instantiation instance;
+   InstanceMask targetMask;
    void * instData;
    ExpFlags instanceFlags;
 
-   CartoSymExpInstance ::parse(CartoSymSpecName spec, CartoSymLexer lexer)
+   CQL2ExpInstance ::parse(CQL2SpecName spec, CQL2Lexer lexer)
    {
-      return { instance = CartoSymInstantiation::parse(spec, lexer) };
+      return { instance = CQL2Instantiation::parse(spec, lexer) };
    }
 
-   CartoSymExpInstance copy()
+   CQL2ExpInstance copy()
    {
-      CartoSymExpInstance e
+      CQL2ExpInstance e
       {
          instance = instance ? instance.copy() : null,
          targetMask = targetMask, expType = expType, destType = destType
@@ -1665,7 +1895,7 @@ public:
       if(instData && instanceFlags == { resolved = true } && expType)
       {
          // Avoid re-computation of resolved instance
-         void (* onCopy)(void *, void *, void *) = expType._vTbl[__ecereVMethodID_class_OnCopy];
+         void (* onCopy)(void *, void *, void *) = expType._vTbl[__eCVMethodID_class_OnCopy];
          if(expType.type == structClass)
          {
             e.instData = new0 byte[expType.structSize];
@@ -1676,7 +1906,7 @@ public:
       return e;
    }
 
-   void print(File out, int indent, CartoSymOutputOptions o)
+   void print(File out, int indent, CQL2OutputOptions o)
    {
       if(instance)
       {
@@ -1697,24 +1927,24 @@ public:
       }
    }
 
-   ExpFlags compute(FieldValue value, ECCSSEvaluator evaluator, ComputeType computeType, Class stylesClass)
+   ExpFlags compute(FieldValue value, CQL2Evaluator evaluator, ComputeType computeType, Class instClass)
    {
       ExpFlags flags = 0; //can an instance be resolved entirely to a constant? -- we resolve it to a 'blob' FieldValue
 
       if(computeType == preprocessing && (!instData || instanceFlags != { resolved = true }))
       {
-         Class c = evaluator.evaluatorClass.getClassFromInst(instance, destType, &stylesClass);
+         Class c = evaluator.evaluatorClass.getClassFromInst(instance, destType, &instClass);
          int memberID = 0;
 
          if(instance)
          {
             for(inst : instance.members)
             {
-               CartoSymMemberInitList member = inst;
+               CQL2MemberInitList member = inst;
                for(m : member)
                {
-                  CartoSymMemberInit mInit = m;
-                  flags |= mInit.precompute(stylesClass, c, targetMask, &memberID, evaluator);
+                  CQL2MemberInit mInit = m;
+                  flags |= mInit.precompute(instClass, c, targetMask, &memberID, evaluator);
                }
             }
          }
@@ -1722,7 +1952,7 @@ public:
          {
             value.type = { integer };
             value.i = 0;
-            setGenericBitMembers(this, (uint64 *)&value.i, evaluator, &flags, stylesClass);
+            setGenericBitMembers(this, (uint64 *)&value.i, evaluator, &flags, instClass);
          }
          else
             value = { { nil } };
@@ -1749,7 +1979,7 @@ public:
             }
             else if(expType && expType.type == structClass)
             {
-               const void (* onFree)(void *, void *) = expType._vTbl[__ecereVMethodID_class_OnFree];
+               const void (* onFree)(void *, void *) = expType._vTbl[__eCVMethodID_class_OnFree];
                onFree(expType, instData);
                delete instData;
             }
@@ -1778,19 +2008,22 @@ public:
             value = destType == class(Color) ? { { integer, format = color } } : { { nil } };
             for(i : instance.members)
             {
-               CartoSymMemberInitList members = i;
+               CQL2MemberInitList members = i;
                for(m : members)
                {
-                  CartoSymMemberInit mInit = m;
+                  CQL2MemberInit mInit = m;
                   if(mInit.initializer)
                   {
-                     CartoSymExpression exp = mInit.initializer;
+                     CQL2Expression exp = mInit.initializer;
                      if(destType == class(Color))
                      {
                         FieldValue val {};
-                        String s = (mInit.identifiers && mInit.identifiers.first) ? mInit.identifiers[0].string : null;
+                        CQL2ExpIdentifier idExp = mInit.lhValue && mInit.lhValue._class == class(CQL2ExpIdentifier) ?
+                           (CQL2ExpIdentifier)mInit.lhValue : null;
+                        CQL2Identifier id = idExp ? idExp.identifier : null;
+                        String s = id ? id.string : null;
                         Color col = (Color)value.i;
-                        flags |= exp.compute(val, evaluator, runtime, stylesClass);
+                        flags |= exp.compute(val, evaluator, runtime, instClass);
                         if(!strcmp(s, "r"))
                            col.r = (byte)Min(Max(val.i,0),255);
                         else if(!strcmp(s, "g"))
@@ -1800,7 +2033,7 @@ public:
                         value.i = col;
                      }
                      else
-                        flags |= exp.compute(value, evaluator, runtime, stylesClass);
+                        flags |= exp.compute(value, evaluator, runtime, instClass);
                   }
                }
             }
@@ -1813,22 +2046,22 @@ public:
       return flags;
    }
 
-   void setMemberValue(const String idsString, StylesMask mask, bool createSubInstance, const FieldValue value, Class c)
+   void setMemberValue(const String idsString, InstanceMask mask, bool createSubInstance, const FieldValue value, Class c)
    {
       setMember2(idsString, mask, createSubInstance, expressionFromValue(value, c), null, null, none);
    }
 
-   void setMemberValue2(const String idsString, StylesMask mask, bool createSubInstance, const FieldValue value, Class c, ECCSSEvaluator evaluator, Class stylesClass)
+   void setMemberValue2(const String idsString, InstanceMask mask, bool createSubInstance, const FieldValue value, Class c, CQL2Evaluator evaluator, Class instClass)
    {
-      setMember2(idsString, mask, createSubInstance, expressionFromValue(value, c), evaluator, stylesClass, none);
+      setMember2(idsString, mask, createSubInstance, expressionFromValue(value, c), evaluator, instClass, none);
    }
 
-   void setMember(const String idsString, StylesMask mask, bool createSubInstance, CartoSymExpression expression)
+   void setMember(const String idsString, InstanceMask mask, bool createSubInstance, CQL2Expression expression)
    {
       setMember2(idsString, mask, createSubInstance, expression, null, null, none);
    }
 
-   void setMember2(const String idsString, StylesMask mask, bool createSubInstance, CartoSymExpression expression, ECCSSEvaluator evaluator, Class stylesClass, CartoSymTokenType tt)
+   void setMember2(const String idsString, InstanceMask mask, bool createSubInstance, CQL2Expression expression, CQL2Evaluator evaluator, Class instClass, CQL2TokenType tt)
    {
       #ifdef _DEBUG
          if(!expression)
@@ -1840,16 +2073,16 @@ public:
          bool placed = false;
          if(instance && instance.members)
          {
-            Iterator<CartoSymMemberInitList> it { (void *)instance.members.list };
+            Iterator<CQL2MemberInitList> it { (void *)instance.members.list };
 
             it.Prev();
             while(it.pointer)
             {
                IteratorPointer prev = it.container.GetPrev(it.pointer);
-               CartoSymMemberInitList im = it.data;
+               CQL2MemberInitList im = it.data;
                if(im)
                {
-                  if(!placed && im.setSubMember(createSubInstance, expType, idsString, mask, expression, null, evaluator, stylesClass, none))
+                  if(!placed && im.setSubMember(createSubInstance, expType, idsString, mask, expression, null, evaluator, instClass, none))
                      placed = true;
                   else
                   {
@@ -1857,8 +2090,8 @@ public:
 
                      if(im.removeByIDs(idsString, mask, &after) && !placed)
                      {
-                        CartoSymMemberInit mInit;
-                        CartoSymMemberInitList::setSubMember(null, createSubInstance, expType, idsString, mask, expression, &mInit, evaluator, stylesClass, none);
+                        CQL2MemberInit mInit;
+                        CQL2MemberInitList::setSubMember(null, createSubInstance, expType, idsString, mask, expression, &mInit, evaluator, instClass, none);
                         im.Insert(after, mInit);
                         placed = true;
                      }
@@ -1880,29 +2113,29 @@ public:
 
          if(!placed)
          {
-            CartoSymMemberInitList initList = strchr(idsString, '.') ? null : instance.members.lastIterator.data;
+            CQL2MemberInitList initList = strchr(idsString, '.') ? null : instance.members.lastIterator.data;
             if(!initList)
                instance.members.Add((initList = { }));
-            initList.setMember2(expType, idsString, mask, createSubInstance, expression, evaluator, stylesClass, tt);
+            initList.setMember2(expType, idsString, mask, createSubInstance, expression, evaluator, instClass, tt);
             instance.members.mask |= mask;
          }
       }
    }
 
-   public CartoSymExpression getMemberByIDs(Container<const String> ids)
+   public CQL2Expression getMemberByIDs(Container<const String> ids)
    {
-      CartoSymExpression result = null;
-      if(this && this._class == class(CartoSymExpInstance))
+      CQL2Expression result = null;
+      if(this && this._class == class(CQL2ExpInstance))
       {
-         CartoSymExpInstance ei = (CartoSymExpInstance)this;
+         CQL2ExpInstance ei = (CQL2ExpInstance)this;
          if(ei.instance && ei.instance.members)
          {
             for(m : ei.instance.members)
             {
-               CartoSymMemberInitList members = m;
+               CQL2MemberInitList members = m;
                if(members)
                {
-                  CartoSymExpression r = members.getMemberByIDs(ids);
+                  CQL2Expression r = members.getMemberByIDs(ids);
                   if(r)
                      result = r;
                }
@@ -1912,7 +2145,7 @@ public:
       return result;
    }
 
-   ~CartoSymExpInstance()
+   ~CQL2ExpInstance()
    {
       delete instance;
 
@@ -1931,7 +2164,7 @@ public:
          }
          else if(expType && expType.type == structClass)
          {
-            const void (* onFree)(void *, void *) = expType._vTbl[__ecereVMethodID_class_OnFree];
+            const void (* onFree)(void *, void *) = expType._vTbl[__eCVMethodID_class_OnFree];
             onFree(expType, instData);
             delete instData;
          }
@@ -1942,36 +2175,55 @@ public:
 }
 
 // This is a semi-colon separated list
-public class CartoSymInstInitList : CartoSymList<CartoSymMemberInitList>
+public class CQL2InstInitList : CQL2List<CQL2MemberInitList>
 {
 public:
-   StylesMask mask;
+   InstanceMask mask;
 
-   CartoSymInstInitList ::parse(CartoSymLexer lexer)
+   CQL2InstInitList ::parse(CQL2Lexer lexer)
    {
-      return (CartoSymInstInitList)CartoSymList::parse(class(CartoSymInstInitList), lexer, CartoSymMemberInitList::parse, 0);
+      return (CQL2InstInitList)CQL2List::parse(class(CQL2InstInitList), lexer, CQL2MemberInitList::parse, 0);
    }
 
-   void print(File out, int indent, CartoSymOutputOptions o)
+   void print(File out, int indent, CQL2OutputOptions o)
    {
-      CartoSymList::print(out, indent, o);
-   }
-
-   // getStyle2() is same as getStyle() but splits up the unit value and unit (e.g. Meters) separately
-   CartoSymExpression getStyle2(StylesMask msk, Class * uc)
-   {
-      CartoSymExpression result = getStyle(msk);
-      while(result && result._class == class(CartoSymExpInstance))
+      Iterator<CQL2MemberInitList> it { list };
+      while(it.Next())
       {
-         CartoSymExpInstance ei = (CartoSymExpInstance)result;
+         CQL2MemberInitList initList = it.data;
+         initList.print(out, indent, o);
+         if(list.GetNext(it.pointer))
+         {
+            if(o.multiLineInstance)
+            {
+               out.PrintLn(";");
+               printIndent(indent, out);
+            }
+            else
+               out.Print(", ");
+         }
+      }
+
+      // CQL2List::print(out, indent, o);
+   }
+
+   // getProperty2() is same as getProperty() but splits up the unit value and unit (e.g. Meters) separately
+   CQL2Expression getProperty2(InstanceMask msk, Class * uc)
+   {
+      CQL2Expression result = getProperty(msk);
+      while(result && result._class == class(CQL2ExpInstance))
+      {
+         CQL2ExpInstance ei = (CQL2ExpInstance)result;
+
          if(uc && ei.instance && ei.instance._class)
          {
-            CartoSymSpecName sn = (CartoSymSpecName)ei.instance._class;
+            CQL2SpecName sn = (CQL2SpecName)ei.instance._class;
             Class c = sn ? eSystem_FindClass(__thisModule, sn.name) : null;
             if(c && c.type == unitClass && c.base.type == unitClass)
             {
                *uc = c;
                msk = 0;
+               break;
             }
          }
          else
@@ -1979,12 +2231,14 @@ public:
 
          if(ei.instance && ei.instance.members)
          {
-            // NOTE: This piece and the while loop should no longer be required now with findDeepStyle()
+            result = null;
+
+            // NOTE: This piece and the while loop should no longer be required now with findDeepProperty()
             // TODO: Should iterate from the last?
             for(i : ei.instance.members)
             {
-               CartoSymMemberInitList members = i;
-               CartoSymMemberInit mInit = members ? members.findDeepStyle(msk) : null;
+               CQL2MemberInitList members = i;
+               CQL2MemberInit mInit = members ? members.findDeepProperty(msk) : null;
                if(mInit)
                {
                   result = mInit.initializer;
@@ -1992,49 +2246,51 @@ public:
                }
             }
          }
+         else
+            break;
       }
       return result;
    }
 
-   CartoSymMemberInit findStyle(StylesMask msk)
+   CQL2MemberInit findProperty(InstanceMask msk)
    {
       // if(mask & this.mask)
       {
-         Iterator<CartoSymMemberInitList> it { this };
+         Iterator<CQL2MemberInitList> it { this };
          while(it.Prev())
          {
-            CartoSymMemberInitList e = it.data;
-            CartoSymMemberInit mInit = e.findStyle(msk);
+            CQL2MemberInitList e = it.data;
+            CQL2MemberInit mInit = e.findProperty(msk);
             if(mInit) return mInit;
          }
       }
       return null;
    }
 
-   CartoSymMemberInit findDeepStyle(StylesMask msk)
+   CQL2MemberInit findDeepProperty(InstanceMask msk)
    {
       // if(mask & this.mask)
       {
-         Iterator<CartoSymMemberInitList> it { this };
+         Iterator<CQL2MemberInitList> it { this };
          while(it.Prev())
          {
-            CartoSymMemberInitList e = it.data;
-            CartoSymMemberInit mInit = e.findDeepStyle(msk);
+            CQL2MemberInitList e = it.data;
+            CQL2MemberInit mInit = e.findDeepProperty(msk);
             if(mInit) return mInit;
          }
       }
       return null;
    }
 
-   void removeStyle(StylesMask msk)
+   void removeProperty(InstanceMask msk)
    {
-      Iterator<CartoSymMemberInitList> it { this };
+      Iterator<CQL2MemberInitList> it { this };
       it.Next();
       while(it.pointer)
       {
          IteratorPointer next = it.container.GetNext(it.pointer);
-         CartoSymMemberInitList memberInitList = it.data;
-         memberInitList.removeStyle(msk);
+         CQL2MemberInitList memberInitList = it.data;
+         memberInitList.removeProperty(msk);
          if(memberInitList.GetCount() == 0)
          {
             it.Remove();
@@ -2045,38 +2301,38 @@ public:
       mask &= ~msk; // todo: make sure this is ok or write a mask recalculation function?
    }
 
-   CartoSymExpression getStyle(StylesMask mask)
+   CQL2Expression getProperty(InstanceMask mask)
    {
-      CartoSymMemberInit mInit = findDeepStyle(mask);
+      CQL2MemberInit mInit = findDeepProperty(mask);
       return mInit ? mInit.initializer : null;
    }
 
-   void setMemberValue(Class c, const String idsString, StylesMask mask, bool createSubInstance, const FieldValue value, Class uc)
+   void setMemberValue(Class c, const String idsString, InstanceMask mask, bool createSubInstance, const FieldValue value, Class uc)
    {
       setMember2(c, idsString, mask, createSubInstance, expressionFromValue(value, uc), null, null, none);
    }
 
-   void setMemberValue2(Class c, const String idsString, StylesMask mask, bool createSubInstance, const FieldValue value, Class uc, ECCSSEvaluator evaluator, Class stylesClass)
+   void setMemberValue2(Class c, const String idsString, InstanceMask mask, bool createSubInstance, const FieldValue value, Class uc, CQL2Evaluator evaluator, Class instClass)
    {
-      setMember2(c, idsString, mask, createSubInstance, expressionFromValue(value, uc), evaluator, stylesClass, none);
+      setMember2(c, idsString, mask, createSubInstance, expressionFromValue(value, uc), evaluator, instClass, none);
    }
 
-   void setMember(Class c, const String idString, StylesMask msk, bool createSubInstance, CartoSymExpression expression)
+   void setMember(Class c, const String idString, InstanceMask msk, bool createSubInstance, CQL2Expression expression)
    {
       if(expression)
          setMember2(c, idString, msk, createSubInstance, expression, null, null, none);
       else
-         removeStyle(msk); // TOCHECK: Should the style be removed if attempting to set a null expression?
+         removeProperty(msk); // TOCHECK: Should the style be removed if attempting to set a null expression?
    }
 
-   void setMember2(Class c, const String idString, StylesMask msk, bool createSubInstance, CartoSymExpression expression, ECCSSEvaluator evaluator, Class stylesClass, CartoSymTokenType tt)
+   void setMember2(Class c, const String idString, InstanceMask msk, bool createSubInstance, CQL2Expression expression, CQL2Evaluator evaluator, Class instClass, CQL2TokenType tt)
    {
       if(this)
       {
-         CartoSymMemberInitList list = null;
+         CQL2MemberInitList list = null;
          if(msk)
          {
-            Iterator<CartoSymMemberInitList> it { this };
+            Iterator<CQL2MemberInitList> it { this };
             char * dot = idString ? strchr(idString, '.') : null;
             String member = null;
             if(dot)
@@ -2087,7 +2343,7 @@ public:
                member[len] = 0;
             }
 
-            /*StylesMask topMask = msk;
+            /*InstanceMask topMask = msk;
             char * pch = strchr(idString, '.');
             if(pch)
             {
@@ -2104,14 +2360,14 @@ public:
 
             while(it.Prev())
             {
-               CartoSymMemberInitList members = it.data;
+               CQL2MemberInitList members = it.data;
                if(member && members.findTopStyle(mask, member))
                {
                   list = members;
                   break;
                }
 
-               if(members.findStyle(msk))
+               if(members.findProperty(msk))
                {
                   list = members;
                   break;
@@ -2122,48 +2378,49 @@ public:
          if(!list)
             Add((list = { }));
 
-         list.setMember2(c, idString, msk, createSubInstance, expression, evaluator, stylesClass, tt);
+         list.setMember2(c, idString, msk, createSubInstance, expression, evaluator, instClass, tt);
 
          mask |= msk;
       }
    }
 
-   bool changeStyle(StylesMask msk, const FieldValue value, Class c, ECCSSEvaluator evaluator, bool isNested, Class uc)
+   bool changeProperty(InstanceMask msk, const FieldValue value, Class c, CQL2Evaluator evaluator, bool isNested, Class uc)
    {
       const String idString = msk ? evaluator.evaluatorClass.stringFromMask(msk, c) : null;
-      CartoSymExpression e = expressionFromValue(value, uc);
+      CQL2Expression e = expressionFromValue(value, uc);
       FieldValue v { };
 
       setMember2(c, idString, msk, !isNested, e, evaluator, c, none);
-      e.compute(v, evaluator, preprocessing, c); // REVIEW: use of c for stylesClass here...
+      e.compute(v, evaluator, preprocessing, c); // REVIEW: use of c for instClass here...
       return true;
    }
 }
 
-public class CartoSymInstantiation : CartoSymNode
+public class CQL2Instantiation : CQL2Node
 {
 public:
-   CartoSymSpecName _class;
+   CQL2SpecName _class;
 
-   CartoSymInstInitList members;
+   CQL2InstInitList members;
 
-   CartoSymInstantiation ::parse(CartoSymSpecName spec, CartoSymLexer lexer)
+   CQL2Instantiation ::parse(CQL2SpecName spec, CQL2Lexer lexer)
    {
-      CartoSymInstantiation inst { _class = spec };
+      CQL2Instantiation inst { _class = spec };
       lexer.readToken();
-      inst.members = CartoSymInstInitList::parse(lexer);
-      if(lexer.peekToken().type == '}')
+      inst.members = CQL2InstInitList::parse(lexer);
+
+      if(lexer.peekToken().type == '}' || lexer.peekToken().type == ')')
          lexer.readToken();
       return inst;
    }
 
-   CartoSymInstantiation copy()
+   CQL2Instantiation copy()
    {
-      CartoSymInstantiation o { _class = _class ? _class.copy() : null, members = members ? members.copy() : null };
+      CQL2Instantiation o { _class = _class ? _class.copy() : null, members = members ? members.copy() : null };
       return o;
    }
 
-   void print(File out, int indent, CartoSymOutputOptions o)
+   void print(File out, int indent, CQL2OutputOptions o)
    {
       bool multiLine = o.multiLineInstance;
 
@@ -2183,14 +2440,14 @@ public:
       {
          if(multiLine)
          {
-            Iterator<CartoSymMemberInitList> it { members };
+            Iterator<CQL2MemberInitList> it { members };
             while(it.Next())
             {
-               CartoSymMemberInitList init = it.data;
+               CQL2MemberInitList init = it.data;
                printIndent(indent, out);
                init.print(out, indent, o);
                // REVIEW: When we want this semicolon?
-               if(init._class == class(CartoSymMemberInitList) && members.GetNext(it.pointer))
+               if(init._class == class(CQL2MemberInitList) && members.GetNext(it.pointer))
                   out.Print(";");
                out.PrintLn("");
             }
@@ -2213,7 +2470,7 @@ public:
    }
 
 
-   ~CartoSymInstantiation()
+   ~CQL2Instantiation()
    {
       delete _class;
 
@@ -2221,101 +2478,156 @@ public:
    }
 };
 
-public class CartoSymMemberInit : CartoSymNode
+public class CQL2MemberInit : CQL2Node
 {
    class_no_expansion;
 public:
-   List<CartoSymIdentifier> identifiers;
-   CartoSymExpression initializer;
+   CQL2Expression lhValue;
+   CQL2Expression initializer;
 
-   CartoSymTokenType assignType;
+   CQL2TokenType assignType;
    Class destType;
-   StylesMask stylesMask;
+   InstanceMask stylesMask;
    DataMember dataMember;
    uint offset;
 
-   CartoSymMemberInit ::parse(CartoSymLexer lexer)
+   CQL2MemberInit ::parse(CQL2Lexer lexer)
    {
-      List<CartoSymIdentifier> identifiers = null;
-      CartoSymExpression initializer = null;
-      CartoSymTokenType assignType = '=';
+      CQL2Expression lhValue = null;
+      CQL2Expression initializer = null;
+      CQL2TokenType assignType = '=';
       if(lexer.peekToken().type == identifier)
       {
          int a = lexer.pushAmbiguity();
-         while(true)
+         lhValue = CQL2ExpIdentifier::parse(lexer);
+         if(lhValue)
          {
-            CartoSymIdentifier id = CartoSymIdentifier::parse(lexer);
-            if(id)
+            while(true)
             {
-               if(!identifiers) identifiers = { };
-               identifiers.Add(id);
-               if(lexer.peekToken().type != '.')
-                  break;
-               else
+               CQL2Token token = lexer.peekToken();
+               if(token.type == '.')
+               {
                   lexer.readToken();
+                  token = lexer.peekToken();
+                  if(token.type == identifier)
+                  {
+                     CQL2Identifier id = CQL2Identifier::parse(lexer);
+                     lhValue = CQL2ExpMember { exp = lhValue, member = id };
+                  }
+                  else
+                     break;
+               }
+               else if(token.type == '[')
+               {
+                  CQL2Expression index;
+
+                  lexer.readToken();
+                  index = CQL2Expression::parse(lexer);
+                  if(index && lexer.peekToken().type == ']')
+                  {
+                     lexer.readToken();
+                     lhValue = CQL2ExpIndex { exp = lhValue, index = CQL2ExpList { [ index ] } };
+                  }
+                  else
+                     break;
+               }
+               else
+                  break;
             }
          }
-         if(lexer.peekToken().type == '=' || lexer.nextToken.type == addAssign)
+         if(lhValue && (lexer.peekToken().type == ':' || lexer.nextToken.type == addAssign))
          {
-            assignType = lexer.nextToken.type;
+            assignType = lexer.nextToken.type == addAssign ? addAssign : equal;
             lexer.clearAmbiguity();
             lexer.readToken();
          }
          else
          {
-            identifiers.Free();
-            delete identifiers;
+            delete lhValue;
             lexer.popAmbiguity(a);
          }
       }
-      initializer = CartoSymExpression::parse(lexer);  /*CartoSymInitExp*/
-      return (identifiers || initializer) ?
-         CartoSymMemberInit { identifiers = (void *)identifiers, initializer = initializer, assignType = assignType } : null;
+      initializer = CQL2Expression::parse(lexer);  /*CSInitExp*/
+      return (lhValue || initializer) ?
+         CQL2MemberInit { lhValue = lhValue, initializer = initializer, assignType = assignType } : null;
    }
 
-   CartoSymNode copy()
+   CQL2Node copy()
    {
-      CartoSymMemberInit memberInit
+      CQL2MemberInit memberInit
       {
          assignType = assignType, initializer = initializer.copy(), stylesMask = stylesMask,
-         identifiers = copyList(identifiers, (void *)CartoSymIdentifier::copy),
+         lhValue = lhValue.copy(),
          destType = destType, dataMember = dataMember,
          offset = offset
       };
       return memberInit;
    }
 
+   static Class ::resolveLH(CQL2Expression lh, Class type, DataMember * dataMember)
+   {
+      Class resultType = null;
+      const String memberID = null;
+
+      if(lh._class == class(CQL2ExpMember))
+      {
+         CQL2ExpMember expMember = (CQL2ExpMember)lh;
+
+         if(expMember.exp && expMember.member && expMember.member.string)
+         {
+            type = resolveLH(expMember.exp, type, dataMember);
+            memberID = expMember.member.string;
+         }
+      }
+      else if(lh._class == class(CQL2ExpIdentifier))
+      {
+         CQL2ExpIdentifier expId = (CQL2ExpIdentifier)lh;
+         memberID = expId.identifier ? expId.identifier.string : null;
+      }
+      else if(lh._class == class(CQL2ExpIndex))
+      {
+         // TODO: CQL2ExpIndex expIndex = (CQL2ExpIndex)lh;
+      }
+      if(memberID)
+      {
+         *dataMember = eClass_FindDataMember(type, memberID, type.module, null, null);
+         if(!*dataMember)
+         {
+            *dataMember = (DataMember)eClass_FindProperty(type, memberID, type.module);
+         }
+         if(*dataMember)
+         {
+            if(!dataMember->dataTypeClass)
+               dataMember->dataTypeClass = eSystem_FindClass(dataMember->_class.module, dataMember->dataTypeString);
+            resultType = dataMember->dataTypeClass;
+         }
+      }
+      return resultType;
+   }
+
+
    // targetStylesMask is topMask for the 'c' instance (e.g. stroke for stroke =)
-   private ExpFlags precompute(Class stylesClass, Class c, StylesMask targetStylesMask, int * memberID, ECCSSEvaluator evaluator)
+   /*private */ExpFlags precompute(Class instClass, Class c, InstanceMask targetStylesMask, int * memberID, CQL2Evaluator evaluator)
    {
       ExpFlags flags = 0;
       // NOTE: We need a separate Class for the styling object within which a sub-instance would be
       //       vs. the current instance level class (current c)
-      String identifierStr = targetStylesMask ? CopyString(evaluator.evaluatorClass.stringFromMask(targetStylesMask, stylesClass)) : null;
+      String identifierStr = targetStylesMask ? CopyString(evaluator.evaluatorClass.stringFromMask(targetStylesMask, instClass)) : null;
       Class type = c;
-
-      dataMember = null;
-      if(type && identifiers && identifiers.first)
+      DataMember dataMember = null;
+      if(type && lhValue)
       {
-         for(i : identifiers)
+         String v = lhValue.toString(0);
+         if(identifierStr)
          {
-            String s = identifierStr ? PrintString(identifierStr, ".", i.string) : CopyString(i.string);
+            String s = PrintString(identifierStr, ".", v);
             delete identifierStr;
             identifierStr = s;
-            dataMember = eClass_FindDataMember(type, i.string, type.module, null, null);
-            if(!dataMember)
-            {
-               dataMember = (DataMember)eClass_FindProperty(type, i.string, type.module);
-            }
-            if(dataMember)
-            {
-               if(!dataMember.dataTypeClass)
-                  dataMember.dataTypeClass = destType = eSystem_FindClass(dataMember._class.module, dataMember.dataTypeString);
-               else
-                  destType = dataMember.dataTypeClass;
-               type = dataMember.dataTypeClass;
-            }
+            delete v;
          }
+         else
+            identifierStr = v;
+         destType = type = resolveLH(lhValue, type, &dataMember);
       }
       else if(memberID)
       {
@@ -2421,11 +2733,11 @@ public:
          }
          this.dataMember = dataMember;
 
-         stylesMask = identifierStr && stylesClass && stylesClass.type != structClass && destType != class(byte)
-            ? evaluator.evaluatorClass.maskFromString(identifierStr, stylesClass) : 0;
+         stylesMask = identifierStr && instClass && instClass.type != structClass && destType != class(byte)
+            ? evaluator.evaluatorClass.maskFromString(identifierStr, instClass) : 0;
          if(initializer)
          {
-            CartoSymExpression e = initializer;
+            CQL2Expression e = initializer;
             if(e)
             {
                FieldValue val { };
@@ -2440,24 +2752,24 @@ public:
                }
                else
                {
-                  if(e._class == class(CartoSymExpInstance))
+                  if(e._class == class(CQL2ExpInstance))
                   {
-                     ((CartoSymExpInstance)e).targetMask = stylesMask;
+                     ((CQL2ExpInstance)e).targetMask = stylesMask;
                   }
-                  else if(e._class == class(CartoSymExpConditional))
+                  else if(e._class == class(CQL2ExpConditional))
                   {
-                     CartoSymExpConditional cond = (CartoSymExpConditional)e;
-                     CartoSymExpression lastExp = cond.expList ? cond.expList.lastIterator.data : null;
-                     if(lastExp && lastExp._class == class(CartoSymExpInstance))
+                     CQL2ExpConditional cond = (CQL2ExpConditional)e;
+                     CQL2Expression lastExp = cond.expList ? cond.expList.lastIterator.data : null;
+                     if(lastExp && lastExp._class == class(CQL2ExpInstance))
                      {
-                        ((CartoSymExpInstance)lastExp).targetMask = stylesMask;
+                        ((CQL2ExpInstance)lastExp).targetMask = stylesMask;
                      }
-                     if(cond.elseExp && cond.elseExp._class == class(CartoSymExpInstance))
+                     if(cond.elseExp && cond.elseExp._class == class(CQL2ExpInstance))
                      {
-                        ((CartoSymExpInstance)cond.elseExp).targetMask = stylesMask;
+                        ((CQL2ExpInstance)cond.elseExp).targetMask = stylesMask;
                      }
                   }
-                  flags = e.compute(val, evaluator, preprocessing, stylesClass);
+                  flags = e.compute(val, evaluator, preprocessing, instClass);
                }
                if(flags.resolved)
                   initializer = simplifyResolved(val, e);
@@ -2466,18 +2778,18 @@ public:
       }
       else if(type && type.type == unitClass)
       {
-         stylesMask = identifierStr && stylesClass && stylesClass.type != structClass
-            ? evaluator.evaluatorClass.maskFromString(identifierStr, stylesClass) : 0;
+         stylesMask = identifierStr && instClass && instClass.type != structClass
+            ? evaluator.evaluatorClass.maskFromString(identifierStr, instClass) : 0;
          if(initializer)
          {
-            CartoSymExpression e = initializer;
+            CQL2Expression e = initializer;
             if(e)
             {
                FieldValue val { };
                e.destType = type;
-               if(e._class == class(CartoSymExpInstance))
-                  ((CartoSymExpInstance)e).targetMask = stylesMask;
-               flags = e.compute(val, evaluator, preprocessing, stylesClass);
+               if(e._class == class(CQL2ExpInstance))
+                  ((CQL2ExpInstance)e).targetMask = stylesMask;
+               flags = e.compute(val, evaluator, preprocessing, instClass);
                if(flags.resolved)
                   initializer = simplifyResolved(val, e);
             }
@@ -2500,18 +2812,23 @@ public:
       //destType == class(int64)  .. destType == class(double)
    }
 
-   void print(File out, int indent, CartoSymOutputOptions o)
+   void printSep(File out)
+   {
+      out.PrintLn(";");
+   }
+
+   void print(File out, int indent, CQL2OutputOptions o)
    {
       print2(out, indent, o, null);
    }
 
-   void print2(File out, int indent, CartoSymOutputOptions o, DataMember lastMember)
+   void print2(File out, int indent, CQL2OutputOptions o, DataMember lastMember)
    {
       bool outputIdentifiers = false;
-      if(identifiers)
+      if(lhValue)
       {
          outputIdentifiers = true;
-         if(identifiers.count == 1 && o.skipImpliedID && dataMember)
+         if(lhValue._class == class(CQL2ExpIdentifier) && o.skipImpliedID && dataMember)
          {
             if((!lastMember && dataMember.id == 0) || (lastMember && dataMember.id == lastMember.id + 1))
                outputIdentifiers = false;
@@ -2520,23 +2837,24 @@ public:
 
       if(outputIdentifiers)
       {
-         Iterator<CartoSymIdentifier> it { identifiers };
-         CartoSymExpInstance ei = initializer && initializer._class == class(CartoSymExpInstance) ? (CartoSymExpInstance)initializer : null;
+         CQL2ExpInstance ei = initializer && initializer._class == class(CQL2ExpInstance) ? (CQL2ExpInstance)initializer : null;
          Class type = ei ? (ei.expType ? ei.expType : ei.destType) : null;
          bool slType = !type || type.type == structClass || type.type == unitClass || type.type == bitClass || type.type == noHeadClass;
 
          if(type && type.type == structClass && !strcmp(type.name, "HillShading")) // Make an exception until we switch to noHeadClass
             slType = false;
 
-         while(it.Next())
+         if(lhValue)
+            lhValue.print(out, indent, o);
+
+         if(assignType == equal)
+            CQL2TokenType::colon.print(out, indent, o);
+         else
          {
-            it.data.print(out, indent, o);
-            if(identifiers.GetNext(it.pointer))
-               out.Print(".");
+            out.Print(" ");
+            assignType.print(out, indent, o);
          }
-         out.Print(" ");
-         assignType.print(out, indent, o);
-         if(slType && (!initializer || initializer._class != class(CartoSymExpInstance) || !((CartoSymExpInstance)initializer).printsAsMultiline))
+         if(slType && (!initializer || initializer._class != class(CQL2ExpInstance) || !((CQL2ExpInstance)initializer).printsAsMultiline))
             out.Print(" "); // Not multiline
          else if(assignType == addAssign)
          {
@@ -2548,42 +2866,41 @@ public:
          initializer.print(out, indent, o);
    }
 
-   ~CartoSymMemberInit()
+   ~CQL2MemberInit()
    {
-      if(identifiers)
-         identifiers.Free(), delete identifiers;
+      delete lhValue;
       delete initializer;
    }
 };
 
 // This is a comma-separated list
-public class CartoSymMemberInitList : CartoSymList<CartoSymMemberInit>
+public class CQL2MemberInitList : CQL2List<CQL2MemberInit>
 {
 public:
-   //StylesMask stylesMask;
-   CartoSymMemberInitList ::parse(CartoSymLexer lexer)
+   //InstanceMask stylesMask;
+   CQL2MemberInitList ::parse(CQL2Lexer lexer)
    {
-      CartoSymMemberInitList list = (CartoSymMemberInitList)CartoSymList::parse(class(CartoSymMemberInitList), lexer, CartoSymMemberInit::parse, ',');
+      CQL2MemberInitList list = (CQL2MemberInitList)CQL2List::parse(class(CQL2MemberInitList), lexer, CQL2MemberInit::parse, ',');
       if(lexer.peekToken().type == ';')
          lexer.readToken();
       return list;
    }
 
-   void print(File out, int indent, CartoSymOutputOptions o)
+   void print(File out, int indent, CQL2OutputOptions o)
    {
-      Iterator<CartoSymMemberInit> it { list };
+      Iterator<CQL2MemberInit> it { list };
       DataMember lastMember = null;
       while(it.Next())
       {
-         CartoSymMemberInit init = it.data;
+         CQL2MemberInit init = it.data;
          init.print2(out, indent, o, lastMember);
          lastMember = init.dataMember;
          if(list.GetNext(it.pointer))
          {
-            // NOTE: can multiLineInstance keep 'true' from call to CartoSymExpInstance::print?
+            // NOTE: can multiLineInstance keep 'true' from call to CQL2ExpInstance::print?
             if(o.multiLineInstance || init.assignType == addAssign)
             {
-               out.PrintLn(",");
+               out.PrintLn(";");
                printIndent(indent, out);
             }
             else
@@ -2592,42 +2909,88 @@ public:
       }
    }
 
-   CartoSymExpression getMemberByIDs(Container<const String> ids)
+   CQL2Expression getMemberByIDs(Container<const String> ids)
    {
       return getMemberByIDs2(ids, null);
    }
 
-   CartoSymExpression getMemberByIDs2(Container<const String> ids, CartoSymMemberInit * initPtr)
+   // Returns true for same
+   static bool lhValueSameAsIDs(CQL2Expression leftHand, Container<const String> ids)
    {
-      CartoSymExpression result = null;
-      // TODO: Recognize default initializers
-      for(mi : this)
-      {
-         CartoSymMemberInit init = mi;
-         if(init && init.initializer)
-         {
-            CartoSymExpression e = init.initializer;
-            bool same = true;
-            if(ids.GetCount() != (init.identifiers ? init.identifiers.count : 0))
-               same = false;
-            else
-            {
-               int j;
-               Iterator<CartoSymIdentifier> it { init.identifiers };
+      bool same = true;
+      CQL2Expression lh = leftHand;
+      int count = lh ? 1 : 0;
 
-               for(j = 0; j < ids.GetCount(); j++)
+      while(lh && lh._class == class(CQL2ExpMember))
+      {
+         lh = ((CQL2ExpMember)lh).exp;
+      }
+
+      if(ids.GetCount() != count)
+         same = false;
+      else
+      {
+         int j;
+
+         lh = leftHand;
+         for(j = ids.GetCount()-1; j >= 0; j--)
+         {
+            const String id = ids[j];
+
+            if(lh && id)
+            {
+               if(lh._class == class(CQL2ExpMember))
                {
-                  const String id = ids[j], s = it.Next() ? it.data.string : null;
+                  CQL2ExpMember expMember = (CQL2ExpMember)lh;
+                  const String s = expMember.member ? expMember.member.string : null;
                   if(!s || strcmp(s, id))
                   {
                      same = false;
                      break;
                   }
+                  lh = expMember.exp;
+               }
+               else if(lh._class == class(CQL2ExpIdentifier))
+               {
+                  CQL2ExpIdentifier expId = (CQL2ExpIdentifier)lh;
+                  const String s = expId.identifier ? expId.identifier.string : null;
+                  if(!s || strcmp(s, id))
+                  {
+                     same = false;
+                     break;
+                  }
+                  lh = null;
+               }
+               else
+               {
+                  same = false;
+                  break;
                }
             }
+            else
+            {
+               same = false;
+               break;
+            }
+         }
+      }
+      return same;
+   }
+
+   CQL2Expression getMemberByIDs2(Container<const String> ids, CQL2MemberInit * initPtr)
+   {
+      CQL2Expression result = null;
+      // TODO: Recognize default initializers
+      for(mi : this)
+      {
+         CQL2MemberInit init = mi;
+         CQL2Expression initializer = init ? init.initializer : null;
+         if(initializer)
+         {
+            bool same = lhValueSameAsIDs(init.lhValue, ids);
             if(same)
             {
-               result = e;
+               result = initializer;
                if(initPtr) *initPtr = init;
             }
          }
@@ -2635,11 +2998,11 @@ public:
       return result;
    }
 
-   private static bool setSubMember(bool createSubInstance, Class c, const String idsString, StylesMask mask, CartoSymExpression expression,
-      CartoSymMemberInit * mInitPtr, ECCSSEvaluator evaluator, Class stylesClass, CartoSymTokenType tt)
+   private static bool setSubMember(bool createSubInstance, Class c, const String idsString, InstanceMask mask, CQL2Expression expression,
+      CQL2MemberInit * mInitPtr, CQL2Evaluator evaluator, Class instClass, CQL2TokenType tt)
    {
-      CartoSymMemberInit mInit = null;
-      CartoSymMemberInit mInit2 = null;
+      CQL2MemberInit mInit = null;
+      CQL2MemberInit mInit2 = null;
       bool setSubInstance = false;
 
       if(idsString && idsString[0])
@@ -2649,7 +3012,7 @@ public:
          if(dot)
          {
             int len = (int)(dot - idsString);
-            CartoSymExpression e = null;
+            CQL2Expression e = null;
 
             member = new char[len+1];
 
@@ -2662,7 +3025,7 @@ public:
                if(!e && mask)
                {
                   // This will recognize default initializers...
-                  CartoSymMemberInit mInit = findTopStyle(mask, member);
+                  CQL2MemberInit mInit = findTopStyle(mask, member);
                   if(mInit) e = mInit.initializer;
 
                   if(!e)
@@ -2681,7 +3044,7 @@ public:
                      if(!e)
                      {
                         // Direct style isn't set, look for any intermediate style
-                        mInit = findStyle(mask);
+                        mInit = findProperty(mask);
                         if(mInit) e = mInit.initializer;
                      }
                   }
@@ -2690,11 +3053,11 @@ public:
 
             if(!e && createSubInstance)
             {
-               e = CartoSymExpInstance { };
+               e = CQL2ExpInstance { };
                if(evaluator != null)
                {
                   // NOTE: If we have the evaluator here, we can set targetMask for ExpInstance, as we should...
-                  ((CartoSymExpInstance)e).targetMask = evaluator.evaluatorClass.maskFromString(member, stylesClass);
+                  ((CQL2ExpInstance)e).targetMask = evaluator.evaluatorClass.maskFromString(member, instClass);
                }
                if(c)
                {
@@ -2710,13 +3073,13 @@ public:
                      e.expType = dataMember.dataTypeClass;
                }
 
-               ((CartoSymExpInstance)e).setMember(dot+1, mask, createSubInstance, expression);
+               ((CQL2ExpInstance)e).setMember(dot+1, mask, createSubInstance, expression);
                expression = e;
                idsString = member;
             }
-            else if(e && e._class == class(CartoSymExpInstance) && !setSubInstance)
+            else if(e && e._class == class(CQL2ExpInstance) && !setSubInstance)
             {
-               ((CartoSymExpInstance)e).setMember(dot+1, mask, createSubInstance, expression);
+               ((CQL2ExpInstance)e).setMember(dot+1, mask, createSubInstance, expression);
                setSubInstance = true;
 
                if(mInit2)
@@ -2726,10 +3089,10 @@ public:
 
          if(!setSubInstance && mInitPtr)
          {
-            // NOTE: The mask being set here should be the full mask if expression is a CartoSymExpInstance (but requires the targetMask to be set)
-            if(expression && expression._class == class(CartoSymExpInstance))
+            // NOTE: The mask being set here should be the full mask if expression is a CQL2ExpInstance (but requires the targetMask to be set)
+            if(expression && expression._class == class(CQL2ExpInstance))
             {
-               mask |= ((CartoSymExpInstance)expression).targetMask;
+               mask |= ((CQL2ExpInstance)expression).targetMask;
             }
 
             mInit =
@@ -2741,15 +3104,20 @@ public:
             };
             if(expression && mInit.destType) expression.destType = mInit.destType;
 
-            mInit.identifiers = { };
-
             if(dot)
             {
                Array<String> split = dot ? splitIdentifier(idsString) : { [ CopyString(idsString) ] };
                DataMember dataMember = null;
                for(s : split)
                {
-                  mInit.identifiers.Add(CartoSymIdentifier { string = s });
+                  if(mInit.lhValue)
+                  {
+                     mInit.lhValue = CQL2ExpMember { exp = mInit.lhValue, member = CQL2Identifier { string = s } };
+                  }
+                  else
+                  {
+                     mInit.lhValue = CQL2ExpIdentifier { identifier = CQL2Identifier { string = s } };
+                  }
                   if(c)
                   {
                      dataMember = eClass_FindDataMember(c, s, c.module, null, null);
@@ -2792,7 +3160,7 @@ public:
                   if(expression)
                      expression.destType = mInit.destType;
                }
-               mInit.identifiers.Add({ string = CopyString(idsString) });
+               mInit.lhValue = CQL2ExpIdentifier { identifier = { string = CopyString(idsString) } };
             }
          }
          delete member;
@@ -2802,43 +3170,25 @@ public:
       return setSubInstance;
    }
 
-   bool removeByIDs(const String idsString, StylesMask mask, IteratorPointer * after)
+   bool removeByIDs(const String idsString, InstanceMask mask, IteratorPointer * after)
    {
       bool result = false;
       char * dot = idsString ? strchr(idsString, '.') : null;
       Array<String> split = dot ? splitIdentifier(idsString ? idsString : "") : { [ CopyString(idsString) ] };
-      Iterator<CartoSymMemberInit> itmi { this };
+      Iterator<CQL2MemberInit> itmi { this };
 
       itmi.Next();
       while(itmi.pointer)
       {
          IteratorPointer next = GetNext(itmi.pointer);
-         CartoSymMemberInit oldMInit = itmi.data;
+         CQL2MemberInit oldMInit = itmi.data;
          bool same = true;
 
-         if(oldMInit.identifiers && split.count)
+         if(oldMInit.lhValue && split.count)
+            same = lhValueSameAsIDs(oldMInit.lhValue, (Container<const String>)split);
+         else if((oldMInit.lhValue && !split.count) || (!oldMInit.lhValue && split.count))
          {
-            if(oldMInit.identifiers.count != split.count)
-               same = false;
-            else
-            {
-               Iterator<String> itId { split };
-               itId.Next();
-               for(i : oldMInit.identifiers)
-               {
-                  CartoSymIdentifier oldID = i;
-                  String newID = itId.data;
-                  if(!newID || !oldID.string || strcmp(newID, oldID.string))
-                  {
-                     same = false;
-                     break;
-                  }
-               }
-            }
-         }
-         else if((oldMInit.identifiers && !split.count) || (!oldMInit.identifiers && split.count))
-         {
-            if(!oldMInit.identifiers && split.count == 1 && mask && oldMInit.stylesMask == mask)
+            if(!oldMInit.lhValue && split.count == 1 && mask && oldMInit.stylesMask == mask)
                ;
             else
                same = false;
@@ -2859,16 +3209,16 @@ public:
       return result;
    }
 
-   void setMember(Class c, const String idsString, StylesMask mask, bool createSubInstance, CartoSymExpression expression)
+   void setMember(Class c, const String idsString, InstanceMask mask, bool createSubInstance, CQL2Expression expression)
    {
       setMember2(c, idsString, mask, createSubInstance, expression, null, null, none);
    }
 
-   void setMember2(Class c, const String idsString, StylesMask mask, bool createSubInstance, CartoSymExpression expression, ECCSSEvaluator evaluator, Class stylesClass, CartoSymTokenType tt)
+   void setMember2(Class c, const String idsString, InstanceMask mask, bool createSubInstance, CQL2Expression expression, CQL2Evaluator evaluator, Class instClass, CQL2TokenType tt)
    {
-      CartoSymMemberInit mInit;
+      CQL2MemberInit mInit;
 
-      if(!setSubMember(createSubInstance, c, idsString, mask, expression, &mInit, evaluator, stylesClass, tt))
+      if(!setSubMember(createSubInstance, c, idsString, mask, expression, &mInit, evaluator, instClass, tt))
       {
          // Delete old values
          bool placed = false;
@@ -2885,15 +3235,15 @@ public:
    }
 
    // Returns any member init overriding this mask -- it could be at a different level and thus not exactly what is being requested
-   CartoSymMemberInit findStyle(StylesMask mask)
+   CQL2MemberInit findProperty(InstanceMask mask)
    {
       //if(mask & stylesMask)
       {
-         Iterator<CartoSymMemberInit> it { this };
+         Iterator<CQL2MemberInit> it { this };
          while(it.Prev())
          {
-            CartoSymMemberInit mInit = it.data;
-            StylesMask sm = mInit.stylesMask;
+            CQL2MemberInit mInit = it.data;
+            InstanceMask sm = mInit.stylesMask;
             if(!mask || (sm & mask))   // NOTE: Useful to pass a 0 mask to look for unit class value
                return mInit;
          }
@@ -2902,15 +3252,15 @@ public:
    }
 
    // Returns the top style matching topID requested, using sub-value mask to avoid unneeded comparisons
-   CartoSymMemberInit findTopStyle(StylesMask mask, const String topID)
+   CQL2MemberInit findTopStyle(InstanceMask mask, const String topID)
    {
       //if(mask & stylesMask)
       {
-         Iterator<CartoSymMemberInit> it { this };
+         Iterator<CQL2MemberInit> it { this };
          while(it.Prev())
          {
-            CartoSymMemberInit mInit = it.data;
-            StylesMask sm = mInit.stylesMask;
+            CQL2MemberInit mInit = it.data;
+            InstanceMask sm = mInit.stylesMask;
             if(sm & mask)   // NOTE: Useful to pass a 0 mask to look for unit class value
             {
                if(mInit && mInit.dataMember && !strcmp(mInit.dataMember.name, topID))
@@ -2922,15 +3272,15 @@ public:
    }
 
    // Returns an expression set to exactly the requested map, directly at this level
-   CartoSymMemberInit findExactStyle(StylesMask mask)
+   CQL2MemberInit findExactStyle(InstanceMask mask)
    {
       //if(mask & stylesMask)
       {
-         Iterator<CartoSymMemberInit> it { this };
+         Iterator<CQL2MemberInit> it { this };
          while(it.Prev())
          {
-            CartoSymMemberInit mInit = it.data;
-            StylesMask sm = mInit.stylesMask;
+            CQL2MemberInit mInit = it.data;
+            InstanceMask sm = mInit.stylesMask;
             if(sm == mask)
                return mInit;
          }
@@ -2939,23 +3289,23 @@ public:
    }
 
    // Returns an expression exactly for requested mask, including from sub-instance, or null
-   CartoSymMemberInit findDeepStyle(StylesMask mask)
+   CQL2MemberInit findDeepProperty(InstanceMask mask)
    {
       //if(mask & stylesMask)
       {
-         Iterator<CartoSymMemberInit> it { this };
+         Iterator<CQL2MemberInit> it { this };
          while(it.Prev())
          {
-            CartoSymMemberInit mInit = it.data;
-            StylesMask sm = mInit.stylesMask;
+            CQL2MemberInit mInit = it.data;
+            InstanceMask sm = mInit.stylesMask;
             if(sm == mask)
                return mInit;
             else if(sm & mask)
             {
-               if(mInit.initializer && mInit.initializer._class == class(CartoSymExpInstance))
+               if(mInit.initializer && mInit.initializer._class == class(CQL2ExpInstance))
                {
-                  CartoSymExpInstance ei = (CartoSymExpInstance)mInit.initializer;
-                  mInit = ei.instance && ei.instance.members ? ei.instance.members.findDeepStyle(mask) : null;
+                  CQL2ExpInstance ei = (CQL2ExpInstance)mInit.initializer;
+                  mInit = ei.instance && ei.instance.members ? ei.instance.members.findDeepProperty(mask) : null;
                }
                else
                   mInit = null;
@@ -2966,14 +3316,14 @@ public:
       return null;
    }
 
-   void removeStyle(StylesMask mask)
+   void removeProperty(InstanceMask mask)
    {
-      Iterator<CartoSymMemberInit> it { this };
+      Iterator<CQL2MemberInit> it { this };
       it.Next();
       while(it.pointer)
       {
          IteratorPointer next = it.container.GetNext(it.pointer);
-         CartoSymMemberInit memberInit = it.data;
+         CQL2MemberInit memberInit = it.data;
          if(memberInit.stylesMask & mask)
          {
             if((memberInit.stylesMask & mask) == memberInit.stylesMask)
@@ -2983,24 +3333,24 @@ public:
             }
             else
             {
-               CartoSymExpression e = memberInit.initializer;
-               if(e._class == class(CartoSymExpInstance))
+               CQL2Expression e = memberInit.initializer;
+               if(e._class == class(CQL2ExpInstance))
                {
-                  CartoSymExpInstance inst = (CartoSymExpInstance)e;
-                  // FIXME: stylesMask is not always set after a changeStyle() ?  if(inst.stylesMask & mask)
+                  CQL2ExpInstance inst = (CQL2ExpInstance)e;
+                  // FIXME: stylesMask is not always set after a changeProperty() ?  if(inst.stylesMask & mask)
                   {
-                     CartoSymInstInitList initList = inst.instance ? inst.instance.members : null;
+                     CQL2InstInitList initList = inst.instance ? inst.instance.members : null;
                      if(initList)
                      {
-                        Iterator<CartoSymMemberInitList> itl { initList };
+                        Iterator<CQL2MemberInitList> itl { initList };
                         itl.Next();
                         while(itl.pointer)
                         {
                            IteratorPointer nextL = itl.container.GetNext(itl.pointer);
-                           CartoSymMemberInitList mInitList = itl.data;
+                           CQL2MemberInitList mInitList = itl.data;
                            if(mInitList)
                            {
-                              mInitList.removeStyle(mask);
+                              mInitList.removeProperty(mask);
                               if(!mInitList.list.first)
                                  itl.Remove();
                            }
@@ -3017,7 +3367,7 @@ public:
                if(memberInit)
                {
                   // If we are overriding a whole instance, the mask must still be set!!
-                  if(e._class != class(CartoSymExpInstance))
+                  if(e._class != class(CQL2ExpInstance))
                      memberInit.stylesMask &= ~(memberInit.stylesMask & mask);
                }
             }
@@ -3026,9 +3376,9 @@ public:
       }
    }
 
-   CartoSymMemberInitList copy()
+   CQL2MemberInitList copy()
    {
-      CartoSymMemberInitList c = null;
+      CQL2MemberInitList c = null;
       if(this)
       {
          c = eInstance_New(_class);
@@ -3039,25 +3389,25 @@ public:
    }
 }
 
-public class CartoSymSpecName : CartoSymNode
+public class CQL2SpecName : CQL2Node
 {
    class_no_expansion;
 
 public:
    String name;
 
-   void print(File out, int indent, CartoSymOutputOptions o)
+   void print(File out, int indent, CQL2OutputOptions o)
    {
       if(name) out.Print(name);
    }
 
-   CartoSymSpecName copy()
+   CQL2SpecName copy()
    {
-      CartoSymSpecName spec { name = CopyString(name) };
+      CQL2SpecName spec { name = CopyString(name) };
       return spec;
    }
 
-   ~CartoSymSpecName()
+   ~CQL2SpecName()
    {
       delete name;
    }
@@ -3540,9 +3890,9 @@ public void convertFieldValue(const FieldValue src, FieldTypeEx type, FieldValue
       origSrc.OnFree();
 }
 
-public CartoSymExpression expressionFromValue(const FieldValue value, Class c)
+public CQL2Expression expressionFromValue(const FieldValue value, Class c)
 {
-   CartoSymExpression e = null;
+   CQL2Expression e = null;
    if(c && value.type.type == blob && value.b != null)
    {
       if(eClass_IsDerived(c, class(Container)) && c.templateArgs && c.templateArgs[0].dataTypeString)
@@ -3550,8 +3900,8 @@ public CartoSymExpression expressionFromValue(const FieldValue value, Class c)
          // Arrays / Containers
          Container container = (Container)value.b;
          uint count = container.GetCount();
-         CartoSymList<CartoSymExpression> elements { };
-         CartoSymExpArray array { elements = elements, destType = c };
+         CQL2ExpList elements { };
+         CQL2ExpArray array { elements = elements, destType = c };
          int i;
          Iterator it { container = container };
          ClassTemplateArgument typeArg = c.templateArgs[0];
@@ -3576,7 +3926,7 @@ public CartoSymExpression expressionFromValue(const FieldValue value, Class c)
 
             for(i = 0; i < count; i++)
             {
-               CartoSymExpression ee = null;
+               CQL2Expression ee = null;
                FieldValue v { type = fType };
 
                it.Next();
@@ -3618,8 +3968,8 @@ public CartoSymExpression expressionFromValue(const FieldValue value, Class c)
          if(c.type == structClass)
          {
             DataMember m;
-            CartoSymInstantiation instance { };
-            CartoSymExpInstance ei { instance = instance };
+            CQL2Instantiation instance { };
+            CQL2ExpInstance ei { instance = instance };
 
             for(m = c.membersAndProperties.first; m; m = m.next)
             {
@@ -3631,7 +3981,7 @@ public CartoSymExpression expressionFromValue(const FieldValue value, Class c)
                   if(type)
                   {
                      FieldValue v { type = { integer } };
-                     StylesMask mask = 0; //evaluator.evaluatorClass.
+                     InstanceMask mask = 0; //evaluator.evaluatorClass.
                      // TOCHECK: Need a mask here too? Would need evaluator class to determine it...
 
                      if(type.type == structClass || type.type == noHeadClass || type.type == normalClass)
@@ -3662,7 +4012,7 @@ public CartoSymExpression expressionFromValue(const FieldValue value, Class c)
                      {
                         v.b = (void *)((byte *)value.b + m.offset);
                      }
-                     // WARNING: We don't have evaluator and stylesClass to properly set targetMask here yet...
+                     // WARNING: We don't have evaluator and instClass to properly set targetMask here yet...
                      ei.setMemberValue(m.name, mask, true, v, type);
                   }
                }
@@ -3675,21 +4025,21 @@ public CartoSymExpression expressionFromValue(const FieldValue value, Class c)
    {
       e =
          value.type.type == nil || (value.type.type == blob && value.b == null) ?
-            CartoSymExpIdentifier { identifier = { string = CopyString("null") } } :
-         value.type.type == text ? CartoSymExpString { string = CopyString(value.s) } :
-         CartoSymExpConstant { destType = c, constant = value };
-      if(c && c.type == unitClass && c.base && c.base.type == unitClass && e._class == class(CartoSymExpConstant))
+            CQL2ExpIdentifier { identifier = { string = CopyString("null") } } :
+         value.type.type == text ? CQL2ExpString { string = CopyString(value.s) } :
+         CQL2ExpConstant { destType = c, constant = value };
+      if(c && c.type == unitClass && c.base && c.base.type == unitClass && e._class == class(CQL2ExpConstant))
       {
          String s = CopyString(c.name);
-         CartoSymMemberInit minit { initializer = e };
-         CartoSymMemberInitList memberInitList { [ minit ] };
-         CartoSymInstantiation instantiation
+         CQL2MemberInit minit { initializer = e };
+         CQL2MemberInitList memberInitList { [ minit ] };
+         CQL2Instantiation instantiation
          {
-            _class = CartoSymSpecName { name = CopyString(s) }, // e.g. "Meters"
+            _class = CQL2SpecName { name = CopyString(s) }, // e.g. "Meters"
             members = { [ memberInitList ] }
          };
          e.destType = null;
-         e = CartoSymExpInstance { destType = c, instance = instantiation };
+         e = CQL2ExpInstance { destType = c, instance = instantiation };
       }
    }
    return e;

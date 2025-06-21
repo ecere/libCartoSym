@@ -1,14 +1,14 @@
 /******************************************************************************
- Symbolization of Graphics within CartoSym styles
+ Styling of GraphicalElements from Cascading Style Sheets
 ******************************************************************************/
-public import IMPORT_STATIC "ecere"
-public import IMPORT_STATIC "EDA" // For FieldValue
+public import IMPORT_STATIC "ecrt"
 
-import "eccss"
 import "GraphicalElement"
 
+import "CartoStyle"
+
 // NOTE: We should probably split these into separate classes for Shapes, Text, Images as they are use to style different things
-public class GraphicalStyleMask : StylesMask
+public class GraphicalSymbolizerMask : InstanceMask
 {
 public:
    // Generic styles
@@ -36,7 +36,7 @@ public:
    }
 };
 
-public class ShapeStyleMask : GraphicalStyleMask
+public class ShapeStyleMask : GraphicalSymbolizerMask
 {
 public:
    // Shapes Styles
@@ -87,7 +87,7 @@ public:
 };
 
 
-public class TextStyleMask : GraphicalStyleMask
+public class TextStyleMask : GraphicalSymbolizerMask
 {
 public:
    // Text Styles
@@ -123,7 +123,7 @@ public:
    }
 };
 
-public class ImageStyleMask : GraphicalStyleMask
+public class ImageStyleMask : GraphicalSymbolizerMask
 {
 public:
    // Image Styles
@@ -153,20 +153,20 @@ public:
    }
 };
 
-public enum GraphicalStyleKind : GraphicalStyleMask
+public enum GraphicalSymbolizerKind : GraphicalSymbolizerMask
 {
-   zOrder = GraphicalStyleMask { zOrder = true },
-   visibility = GraphicalStyleMask { visibility = true },
-   scaling = GraphicalStyleMask { scaling = true },
-   position = GraphicalStyleMask { position = true },
-   rotation = GraphicalStyleMask { rotation = true },
-   opacity = GraphicalStyleMask { opacity = true },
-   brightness = GraphicalStyleMask { brightness = true },
-   saturation = GraphicalStyleMask { saturation = true },
-   transform = GraphicalStyleMask { scaling = true, position = true, rotation = true }
+   zOrder = GraphicalSymbolizerMask { zOrder = true },
+   visibility = GraphicalSymbolizerMask { visibility = true },
+   scaling = GraphicalSymbolizerMask { scaling = true },
+   position = GraphicalSymbolizerMask { position = true },
+   rotation = GraphicalSymbolizerMask { rotation = true },
+   opacity = GraphicalSymbolizerMask { opacity = true },
+   brightness = GraphicalSymbolizerMask { brightness = true },
+   saturation = GraphicalSymbolizerMask { saturation = true },
+   transform = GraphicalSymbolizerMask { scaling = true, position = true, rotation = true }
 };
 
-public enum ShapeStyleKind : GraphicalStyleKind
+public enum ShapeSymbolizerKind : GraphicalSymbolizerKind
 {
    fill = ShapeStyleMask { fillPattern = true, fillColor = true, fillOpacity = true, fillStippleStyle = true, fillHatchStyle = true, fillGradient = true },
    fillPattern = ShapeStyleMask { fillPattern = true },
@@ -196,7 +196,7 @@ public enum ShapeStyleKind : GraphicalStyleKind
    strokeDashPattern = ShapeStyleMask { strokeDashPattern = true }
 };
 
-public enum TextStyleKind : GraphicalStyleKind
+public enum TextSymbolizerKind : GraphicalSymbolizerKind
 {
    text = TextStyleMask { text = true },
    font = TextStyleMask
@@ -219,7 +219,7 @@ public enum TextStyleKind : GraphicalStyleKind
    alignmentVertAlign = TextStyleMask { alignmentVertAlign = true }
 };
 
-public enum ImageStyleKind : GraphicalStyleKind
+public enum ImageStyleKind : GraphicalSymbolizerKind
 {
    image = ImageStyleMask { imagePath = true, imageId = true, imageUrl = true, imageExt = true, imageType = true, imageSprite = true },
    imageId = ImageStyleMask { imageId = true },
@@ -235,7 +235,7 @@ public enum ImageStyleKind : GraphicalStyleKind
 
 // TODO: Replace these by class reflection
 
-Map<String, GraphicalStyleKind> styleIdentifierMap
+Map<String, GraphicalSymbolizerKind> graphicSymbolizerIdentifierMap
 { [
    { "visibility", visibility },
    { "opacity", opacity },
@@ -250,7 +250,7 @@ Map<String, GraphicalStyleKind> styleIdentifierMap
    { "zOrder", zOrder }
 ] };
 
-Map<String, ShapeStyleKind> shapeStyleIdentifierMap
+Map<String, ShapeSymbolizerKind> shapeSymbolizerIdentifierMap
 { [
    { "fill", fill },
    { "fill.pattern", fillPattern },
@@ -289,7 +289,7 @@ Map<String, ShapeStyleKind> shapeStyleIdentifierMap
    { "stroke.center.opacity", strokeCenterOpacity }
 ] };
 
-Map<String, TextStyleKind> textStyleIdentifierMap
+Map<String, TextSymbolizerKind> textSymbolizerIdentifierMap
 { [
    { "text", text },
    { "font", font },
@@ -314,7 +314,7 @@ Map<String, TextStyleKind> textStyleIdentifierMap
    { "alignment.vertAlign", alignmentVertAlign }
 ] };
 
-Map<String, ImageStyleKind> imageStyleIdentifierMap
+Map<String, ImageStyleKind> imageSymbolizerIdentifierMap
 { [
    { "image", image },
    { "image.path", imagePath },
@@ -337,7 +337,7 @@ Map<String, ImageStyleKind> imageStyleIdentifierMap
 ] };
 
 
-Map<GraphicalStyleKind, const String> stringFromMaskMap
+Map<GraphicalSymbolizerKind, const String> stringFromMaskMap
 { [
    { opacity,     "opacity" },
    { visibility,  "visibility" },
@@ -351,7 +351,7 @@ Map<GraphicalStyleKind, const String> stringFromMaskMap
 ] };
 
 
-Map<ShapeStyleKind, const String> shapeStringFromMaskMap
+Map<ShapeSymbolizerKind, const String> shapeStringFromMaskMap
 { [
    { fill, "fill" },
    { fillPattern, "fill.pattern" },
@@ -378,7 +378,7 @@ Map<ShapeStyleKind, const String> shapeStringFromMaskMap
    { strokeDashPattern, "stroke.dashPattern"  }
 ] };
 
-Map<TextStyleKind, const String> textStringFromMaskMap
+Map<TextSymbolizerKind, const String> textStringFromMaskMap
 { [
    { alignment, "alignment" },
    { alignmentHorzAlign, "alignment.horzAlign" },
@@ -412,14 +412,14 @@ Map<ImageStyleKind, const String> imageStringFromMaskMap
 ] };
 
 
-public struct GraphicalStyleEvaluator : ECCSSEvaluator
+public struct GraphicalSymbolizerEvaluator : CQL2Evaluator
 {
-   void applyStyle(GraphicalStyle object, GraphicalStyleMask mSet, const FieldValue value, int unit, CartoSymTokenType assignType)
+   void applyStyle(GraphicalSymbolizer object, GraphicalSymbolizerMask mSet, const FieldValue value, int unit, CQL2TokenType assignType)
    {
       object.applyStyle(mSet, value, unit, assignType);
    }
 };
-public class GraphicalStyle : struct
+public class GraphicalSymbolizer : struct
 {
 public:
    int zOrder;
@@ -440,28 +440,28 @@ public:
    ExpFlags flags;
 
    //return sym for visualization classes
-   public GraphicalStyle ::build(CartoSymStyleSheet styleSheet, ECCSSEvaluator evaluator, Class stylesClass)
+   public GraphicalSymbolizer ::build(CartoStyle styleSheet, CQL2Evaluator evaluator, Class stylesClass)
    {
-      GraphicalStyle symbolizer = eInstance_New(stylesClass ? stylesClass : class(GraphicalStyle));
-      GraphicalStyleMask m = 0xffffffffffffffff;
+      GraphicalSymbolizer symbolizer = eInstance_New(stylesClass ? stylesClass : class(GraphicalSymbolizer));
+      GraphicalSymbolizerMask m = 0xffffffffffffffff;
       ExpFlags flg = 0;
       if(styleSheet)
       {
-         m = (GraphicalStyleMask)styleSheet.list.apply(symbolizer, m, evaluator, &flg);
+         m = (GraphicalSymbolizerMask)styleSheet.list.apply(symbolizer, m, evaluator, &flg);
       }
       if(m) symbolizer.applyDefaults(m);
       symbolizer.flags = flg;
       return symbolizer;
    }
 
-   public GraphicalStyle ::build2(CartoSymStyleSheet styleSheet, ECCSSEvaluator evaluator, Class stylesClass, StylesMask * fm)
+   public GraphicalSymbolizer ::build2(CartoStyle styleSheet, CQL2Evaluator evaluator, Class stylesClass, InstanceMask * fm)
    {
-      GraphicalStyle symbolizer = eInstance_New(stylesClass ? stylesClass : class(GraphicalStyle));
-      GraphicalStyleMask m = 0xffffffffffffffff;
+      GraphicalSymbolizer symbolizer = eInstance_New(stylesClass ? stylesClass : class(GraphicalSymbolizer));
+      GraphicalSymbolizerMask m = 0xffffffffffffffff;
       ExpFlags flg = 0;
       if(styleSheet)
       {
-         m = (GraphicalStyleMask)styleSheet.list.apply2(symbolizer, m, evaluator, &flg, fm);
+         m = (GraphicalSymbolizerMask)styleSheet.list.apply2(symbolizer, m, evaluator, &flg, fm);
       }
       else if(fm)
          *fm = 0;
@@ -470,13 +470,13 @@ public:
       return symbolizer;
    }
 
-   private void applyDefaults(GraphicalStyleMask mask)
+   private void applyDefaults(GraphicalSymbolizerMask mask)
    {
       if(mask.opacity) opacity = 1.0;
       if(mask.visibility) visibility = true;
    }
 
-   private void applyStyle(GraphicalStyleKind mSet, const FieldValue value, int unit, CartoSymTokenType assignType)
+   private void applyStyle(GraphicalSymbolizerKind mSet, const FieldValue value, int unit, CQL2TokenType assignType)
    {
       switch(mSet)
       {
@@ -492,12 +492,12 @@ public:
          }
          case zOrder: zOrder = (int)value.i; break;
          case scaling: transform.scaling = { (float)value.r, (float)value.r, 1 }; break;
-         case rotation: { Quaternion q; q.Roll(value.r); transform.orientation = q; break; }
+         case rotation: { /* REVIEW: FIXME: Quaternion q; q.Roll(value.r); transform.orientation = q; */break; }
       }
    }
 }
 
-public class ShapeStyle : GraphicalStyle
+public class ShapeSymbolizer : GraphicalSymbolizer
 {
    // Properties...
    Fill fill { };
@@ -516,19 +516,19 @@ public:
    };
 
    //return sym for visualization classes
-   public ShapeStyle ::build(CartoSymStyleSheet styleSheet, ECCSSEvaluator evaluator)
+   public ShapeSymbolizer ::build(CartoStyle styleSheet, CQL2Evaluator evaluator)
    {
-       return (ShapeStyle)GraphicalStyle::build(styleSheet, evaluator, class(ShapeStyle));
+       return (ShapeSymbolizer)GraphicalSymbolizer::build(styleSheet, evaluator, class(ShapeSymbolizer));
    }
 
    private void applyDefaults(ShapeStyleMask mask)
    {
       if(mask.fillColor) fill.color = white;
       if(mask.strokeColor) stroke.color = black;
-      GraphicalStyle::applyDefaults(mask);
+      GraphicalSymbolizer::applyDefaults(mask);
    }
 
-   private void applyStyle(ShapeStyleKind mSet, const FieldValue value, int unit, CartoSymTokenType assignType)
+   private void applyStyle(ShapeSymbolizerKind mSet, const FieldValue value, int unit, CQL2TokenType assignType)
    {
       switch(mSet)
       {
@@ -552,12 +552,12 @@ public:
          case strokeJoin: stroke.join = (LineJoin)value.i; break;
          case strokeCap: stroke.cap = (LineCap)value.i; break;
          case strokeDashPattern: stroke.dashes = value.b; break;
-         default: GraphicalStyle::applyStyle(mSet, value, unit, assignType);
+         default: GraphicalSymbolizer::applyStyle(mSet, value, unit, assignType);
       }
    }
 }
 
-public class TextStyle : GraphicalStyle
+public class TextSymbolizer : GraphicalSymbolizer
 {
 public:
    // Properties..
@@ -566,19 +566,19 @@ public:
    Alignment2D alignment { };
 
    //return sym for visualization classes
-   public TextStyle ::build(CartoSymStyleSheet styleSheet, ECCSSEvaluator evaluator, Class stylesClass)
+   public TextSymbolizer ::build(CartoStyle styleSheet, CQL2Evaluator evaluator, Class stylesClass)
    {
-       return (TextStyle)GraphicalStyle::build(styleSheet, evaluator, class(TextStyle));
+       return (TextSymbolizer)GraphicalSymbolizer::build(styleSheet, evaluator, class(TextSymbolizer));
    }
 
    private void applyDefaults(TextStyleMask mask)
    {
       if(mask.fontFace) font.face = CopyString("Arial");
       if(mask.fontSize) font.size = 10;
-      GraphicalStyle::applyDefaults(mask);
+      GraphicalSymbolizer::applyDefaults(mask);
    }
 
-   private void applyStyle(TextStyleKind mSet, const FieldValue value, int unit, CartoSymTokenType assignType)
+   private void applyStyle(TextSymbolizerKind mSet, const FieldValue value, int unit, CQL2TokenType assignType)
    {
       switch(mSet)
       {
@@ -594,12 +594,12 @@ public:
          case fontOutlineOpacity: font.outline.opacity = (float)value.r; break;
          case alignmentHorzAlign: alignment.horzAlign = (HAlignment)value.i; break;
          case alignmentVertAlign: alignment.vertAlign = (VAlignment)value.i; break;
-         default: GraphicalStyle::applyStyle(mSet, value, unit, assignType);
+         default: GraphicalSymbolizer::applyStyle(mSet, value, unit, assignType);
       }
    }
 }
 
-public class ImageStyle : GraphicalStyle
+public class ImageSymbolizer : GraphicalSymbolizer
 {
 public:
    // Properties..
@@ -609,16 +609,16 @@ public:
    Pointf hotSpot { };
 
    //return sym for visualization classes
-   public ImageStyle ::build(CartoSymStyleSheet styleSheet, ECCSSEvaluator evaluator, Class stylesClass)
+   public ImageSymbolizer ::build(CartoStyle styleSheet, CQL2Evaluator evaluator, Class stylesClass)
    {
-       return (ImageStyle)GraphicalStyle::build(styleSheet, evaluator, class(ImageStyle));
+       return (ImageSymbolizer)GraphicalSymbolizer::build(styleSheet, evaluator, class(ImageSymbolizer));
    }
 
    private void applyDefaults(ImageStyleMask mask)
    {
-      GraphicalStyle::applyDefaults(mask);
+      GraphicalSymbolizer::applyDefaults(mask);
    }
-   private void applyStyle(ImageStyleKind mSet, const FieldValue value, int unit, CartoSymTokenType assignType)
+   private void applyStyle(ImageStyleKind mSet, const FieldValue value, int unit, CQL2TokenType assignType)
    {
       switch(mSet)
       {
@@ -632,7 +632,7 @@ public:
          case blackTint: blackTint = (Color)value.i; break;
          // FIXME:
          //case hotSpot: image.hotSpot = value.b; break; //maybe hotSpotX, hotSpotY???
-         default: GraphicalStyle::applyStyle(mSet, value, unit, assignType);
+         default: GraphicalSymbolizer::applyStyle(mSet, value, unit, assignType);
       }
    }
 }

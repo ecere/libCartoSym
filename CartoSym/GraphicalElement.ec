@@ -1,4 +1,43 @@
-public import IMPORT_STATIC "ecere"
+public import IMPORT_STATIC "ecrt"
+public import IMPORT_STATIC "CQL2" // For Color
+
+public class ColorAlpha
+{
+public:
+   byte a:8:24;
+   Color color:24:0;
+
+   property Color
+   {
+      set { return ColorAlpha { 255, value }; }
+      get { return color; }
+   }
+}
+
+public struct ColorKey
+{
+   ColorAlpha color;
+   float percent;
+};
+
+public struct Euler { Degrees yaw, pitch, roll; };
+
+public struct Vector3D { double x, y, z; };
+public struct Vector3Df { float x, y, z; };
+
+public struct Quaternion
+{
+   double w, x, y, z;
+};
+
+public struct Transform
+{
+   Vector3D position;
+   Quaternion orientation;
+   Vector3Df scaling;
+};
+
+///////////////
 
 public enum GEType { none, shape, text, image, path3D, multi, model, instance };
 
@@ -244,8 +283,8 @@ public:
    property Degrees orientation2D
    {
       // FIXME: This Quaternion storage is quite inefficient for 2D...
-      set { transform.orientation.Yaw(value); }
-      get { Euler euler; euler.FromQuaternion(transform.orientation, yxz); return euler.yaw; }
+      set { /* FIXME transform.orientation.Yaw(value);*/ }
+      get { Euler euler; return 0; } // FIXME/REVIEW: euler.FromQuaternion(transform.orientation, yxz); return euler.yaw; }
    };
    property Quaternion orientation3D
    {
@@ -274,6 +313,8 @@ public:
    };
 
    property GEType type { get { return type; } }
+
+   property GraphicalUnit unit { get { return unit; } }
 }
 
 public enum ShapeType { dot, path, rectangle, ellipse, arc };
@@ -630,8 +671,8 @@ public:
    property Degrees orientation2D
    {
       // FIXME: This Quaternion storage is quite inefficient for 2D...
-      set { (*&transform).orientation.Yaw(value); }
-      get { Euler euler; euler.FromQuaternion((*&transform).orientation, yxz); return euler.yaw; }
+      set { /* FIXME: (*&transform).orientation.Yaw(value);*/ }
+      get { Euler euler; return 0; } // FIXME: euler.FromQuaternion((*&transform).orientation, yxz); return euler.yaw; }
    };
    property Quaternion orientation3D
    {
@@ -668,7 +709,7 @@ public:
       {
          IteratorPointer ptr = elements.GetNext(it.pointer);
          GraphicalElement p = it.data;
-         // NOTE: From CartoSym parent was not being set when adding children...
+         // NOTE: From CS parent was not being set when adding children...
          //       We probably want to skip the 'parent' property and just delete them as we're clearing the whole list
          // p.parent = null;
          delete p;

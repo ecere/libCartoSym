@@ -1,18 +1,17 @@
-//cql2json set up classes as with geojsonfeature
+// CQL2JSON Support
+
 //https://github.com/opengeospatial/styles-and-symbology/blob/main/1-core/schemas/CartoSym-JSON.schema.json
 //https://github.com/opengeospatial/ogcapi-features/blob/master/cql2/standard/schema/cql2.json
 
-// CQL2JSON Support
+public import IMPORT_STATIC "ecrt"
+public import IMPORT_STATIC "SFCollections"
 
-public import IMPORT_STATIC "ecere"
-public import IMPORT_STATIC "EDA" // For FieldValue
-public import "expressions"
-import "CartoSymHelper"
-import "geoJSON"
+import "CQL2Expressions"
+import "CQL2Internalization"
 
-public CartoSymExpression parseCQL2JSONExpression(const String string)
+public CQL2Expression parseCQL2JSONExpression(const String string)
 {
-   CartoSymExpression result = null;
+   CQL2Expression result = null;
    if(string)
    {
       TempFile f { buffer = (byte *)string, size = strlen(string) };
@@ -23,9 +22,9 @@ public CartoSymExpression parseCQL2JSONExpression(const String string)
    return result;
 }
 
-public CartoSymExpression parseCQL2JSONExpressionFile(File f)
+public CQL2Expression parseCQL2JSONExpressionFile(File f)
 {
-   CartoSymExpression result = null;
+   CQL2Expression result = null;
    if(f)
    {
       JSONParser parser { f = f };
@@ -40,16 +39,16 @@ public CartoSymExpression parseCQL2JSONExpressionFile(File f)
 }
 
 // fieldvalue contains the json document
-static CartoSymExpression convertCQL2JSON(FieldValue value)
+static CQL2Expression convertCQL2JSON(FieldValue value)
 {
-   CartoSymExpression result = null;
+   CQL2Expression result = null;
 
    switch(value.type.type)
    {
       case integer:
       case real:
       {
-         CartoSymExpConstant expConstant { constant = { value.type } }; //OnCopy instead?
+         CQL2ExpConstant expConstant { constant = { value.type } }; //OnCopy instead?
 
          if(value.type.type == integer)
             expConstant.constant.i = value.i;
@@ -60,16 +59,16 @@ static CartoSymExpression convertCQL2JSON(FieldValue value)
       }
       case text:
       {
-         result = CartoSymExpString { string = CopyString(value.s) };
+         result = CQL2ExpString { string = CopyString(value.s) };
          break;
       }
       case array:
       {
          Array<FieldValue> values = (Array<FieldValue>)value.a;
-         CartoSymExpArray array { elements = {} };
+         CQL2ExpArray array { elements = {} };
          for(v : values)
          {
-            CartoSymExpression e = convertCQL2JSON(v);
+            CQL2Expression e = convertCQL2JSON(v);
             array.elements.Add(e);
          }
          result = array;
@@ -86,18 +85,18 @@ static CartoSymExpression convertCQL2JSON(FieldValue value)
       }
       case nil:
       {
-         result = CartoSymExpIdentifier { identifier = { string = CopyString("null") } };
+         result = CQL2ExpIdentifier { identifier = { string = CopyString("null") } };
          break;
       }
    }
    return result;
 }
 
-enum CQL2JSONSpecialOperationType { none, function, like, between, isNull };
+static enum CQL2JSONSpecialOperationType { none, function, like, between, isNull };
 
-static CartoSymExpression convertCQL2JSONMap(FieldValue value)
+static CQL2Expression convertCQL2JSONMap(FieldValue value)
 {
-   CartoSymExpression result = null;
+   CQL2Expression result = null;
    MapIterator<String, FieldValue> it { map = value.m };
 
    if(it.Index("property", false))
@@ -108,12 +107,12 @@ static CartoSymExpression convertCQL2JSONMap(FieldValue value)
          char * id = v.s, * dot = strchr(id, '.');
 
          if(dot) *dot = 0;
-         result = CartoSymExpIdentifier { identifier = { string = CopyString(id) } };
+         result = CQL2ExpIdentifier { identifier = { string = CopyString(id) } };
 
          while(dot)
          {
             id = dot + 1;
-            result = CartoSymExpMember { exp = result, member = { string = CopyString(id) } };
+            result = CQL2ExpMember { exp = result, member = { string = CopyString(id) } };
             dot = strchr(id, '.');
             if(dot) *dot = 0;
          }
@@ -126,7 +125,7 @@ static CartoSymExpression convertCQL2JSONMap(FieldValue value)
       {
          DateTime dt {};
          dt.OnGetDataFromString(v.s);
-         result = CartoSymExpConstant { constant = { type = { integer, isDateTime = true }, i = (int64)(SecSince1970)dt }};
+         result = CQL2ExpConstant { constant = { type = { integer, isDateTime = true }, i = (int64)(SecSince1970)dt }};
       }
    }
    else if(it.Index("interval", false))
@@ -134,12 +133,12 @@ static CartoSymExpression convertCQL2JSONMap(FieldValue value)
       FieldValue v = it.data;
       if(v.type.type == array && v.a.count == 2)
       {
-         CartoSymInstantiation inst { _class = CartoSymSpecName { name = CopyString("TimeInterval")}};
-         CartoSymExpInstance expInst { instance = inst };
+         CQL2Instantiation inst { _class = CQL2SpecName { name = CopyString("TimeInterval")}};
+         CQL2ExpInstance expInst { instance = inst };
          bool i;
          for(i = false; i <= true; i++)
          {
-            CartoSymExpression dateExp = null;
+            CQL2Expression dateExp = null;
             if(v.a[i].type.type == text)
             {
                String dateString = v.a[i].s;
@@ -158,10 +157,10 @@ static CartoSymExpression convertCQL2JSONMap(FieldValue value)
       FieldValue opValue = it.data; // make case insensitive?
       FieldValue argsValue { };
       Array<FieldValue> args = (it.Index("args", false) && (argsValue = it.data, argsValue.type.type == array)) ? argsValue.a : null;
-      CQL2JSONTokenType jt = opValue.type.type == text ? cql2JSONStringTokens[opValue.s] : CQL2JSONTokenType::none;
+      CQL2TokenType op = opValue.type.type == text ? cql2JSONStringTokens[opValue.s] : none;
       CQL2JSONSpecialOperationType opType = none;
-      CartoSymTokenType op = jsonOperatorConversionMap[jt];
 
+      // REVIEW: Should this already use internal representation or stick to standard CQL2 when loading?
       if(opValue.type.type == text && opValue.s && (op == none || op == endOfInput))
       {
          // REVIEW: Couldn't we just default top opType = function?
@@ -176,8 +175,7 @@ static CartoSymExpression convertCQL2JSONMap(FieldValue value)
                case '-': op = minus; break;
                case '*': op = multiply; break;
                case '/': op = divide; break;
-
-               case '^': opType = function; break;
+               case '^': opType = function; break;    // REVIEW: Should this stick to CQL2 ^ operator at this point?
                // TODO: conditionals (supported in CartoSym-JSON as an extension)
             }
          }
@@ -192,23 +190,25 @@ static CartoSymExpression convertCQL2JSONMap(FieldValue value)
       }
       if(opType == function)
       {
-         CartoSymExpCall expCall { };
-         const String fn = functionMap[opValue.s];
-         if(!fn)
-            fn = opValue.s;
-         expCall.exp = CartoSymExpIdentifier { identifier = { string = strlwr(CopyString(fn)) } };
+         CQL2ExpCall expCall { };
+         const String fn = opValue.s;
+
+         if(fn && !strcmp(fn, "^"))
+            fn = "pow"; // REVIEW:
+
+         expCall.exp = CQL2ExpIdentifier { identifier = { string = strlwr(CopyString(fn)) } };
 
          result = expCall;
          if(args && args.count) // Some function may not take any arguments
          {
             int i = 0;
-            CartoSymExpList arguments { };
+            CQL2ExpList arguments { };
 
             expCall.arguments = arguments;
 
             for(i = 0; i < args.count && result; i++)
             {
-               CartoSymExpression argExp = convertCQL2JSON(args[i]);
+               CQL2Expression argExp = convertCQL2JSON(args[i]);
                if(argExp)
                   arguments.Add(argExp);
                else
@@ -225,14 +225,14 @@ static CartoSymExpression convertCQL2JSONMap(FieldValue value)
       {
          if(args && args.count == 3)
          {
-            CartoSymExpression e = convertCQL2JSON(args[0]);
-            CartoSymExpBrackets betweenExp { list = { [
-               CartoSymExpOperation {
-                  exp1 = CartoSymExpOperation {
+            CQL2Expression e = convertCQL2JSON(args[0]);
+            CQL2ExpBrackets betweenExp { list = { [
+               CQL2ExpOperation {
+                  exp1 = CQL2ExpOperation {
                      exp1 = e, op = greaterEqual, falseNullComparisons = true,
                      exp2 = convertCQL2JSON(args[1]) },
                   op = and,
-                  exp2 = CartoSymExpOperation {
+                  exp2 = CQL2ExpOperation {
                      exp1 = e.copy(), op = smallerEqual, falseNullComparisons = true,
                      exp2 = convertCQL2JSON(args[2]) }
             } ] } };
@@ -248,28 +248,28 @@ static CartoSymExpression convertCQL2JSONMap(FieldValue value)
       {
          if(args.count == 1)
          {
-            CartoSymExpOperation expOp {
+            CQL2ExpOperation expOp {
                exp1 = convertCQL2JSON(args[0]),
                op = equal,
-               exp2 = CartoSymExpIdentifier { identifier = { string = CopyString("null") } }
+               exp2 = CQL2ExpIdentifier { identifier = { string = CopyString("null") } }
             };
             result = expOp;
          }
       }
       else if(args && args.count && args.count <= 2) // All operators have at least one argument
       {
-         CartoSymExpression e0 = convertCQL2JSON(args[0]);
-         CartoSymExpression e1 = args.count > 1 ? convertCQL2JSON(args[1]) : null;
+         CQL2Expression e0 = convertCQL2JSON(args[0]);
+         CQL2Expression e1 = args.count > 1 ? convertCQL2JSON(args[1]) : null;
 
          if(!e0 || (!e1 && args.count > 1))
             delete e0, delete e1;
          else
          {
-            CartoSymExpOperation expOp { op = op };
+            CQL2ExpOperation expOp { op = op };
             if(args.count == 2)
                expOp.exp1 = e0;
-            else if(op == not && e0._class == class(CartoSymExpOperation))
-               e0 = CartoSymExpBrackets { list = { [ e0 ] } };  // TODO: bracket and/or
+            else if(op == not && e0._class == class(CQL2ExpOperation))
+               e0 = CQL2ExpBrackets { list = { [ e0 ] } };  // TODO: bracket and/or
             // TODO: Handle notEqual etc. ?
             expOp.exp2 = e1 ? e1 : e0;
             result = expOp;
@@ -295,7 +295,7 @@ static CartoSymExpression convertCQL2JSONMap(FieldValue value)
          geometry->type = bbox;
          geometry->bbox = extent;
          delete p1a; delete p2a;
-         result = CartoSymExpInstance { instData = geometry, instanceFlags = { resolved = true }, expType = class(Geometry) };
+         result = CQL2ExpInstance { instData = geometry, instanceFlags = { resolved = true }, expType = class(Geometry) };
          buildInstanceFromInstData(result, null, null);
       }
       delete bboxArray;
@@ -314,14 +314,14 @@ static CartoSymExpression convertCQL2JSONMap(FieldValue value)
    return result;
 }
 
-static CartoSymExpression convertCQL2JSONLikeOp(Array<FieldValue> args)
+static CQL2Expression convertCQL2JSONLikeOp(Array<FieldValue> args)
 {
-   CartoSymExpression result = null;
-   CartoSymExpression e1 = convertCQL2JSON(args[0]), e2 = convertCQL2JSON(args[1]);
+   CQL2Expression result = null;
+   CQL2Expression e1 = convertCQL2JSON(args[0]), e2 = convertCQL2JSON(args[1]);
    bool ai = false, ci = false;
-   CartoSymExpString expString = (CartoSymExpString)getExpStringForLike(e2, &ai, &ci);
+   CQL2ExpString expString = (CQL2ExpString)getExpStringForLike(e2, &ai, &ci);
 
-   if(expString && expString._class == class(CartoSymExpString))
+   if(expString && expString._class == class(CQL2ExpString))
    {
       const String s = expString.string;
       bool quoted = false, foundQ = false, startP = false, endP = false, middleP = false;
@@ -329,16 +329,16 @@ static CartoSymExpression convertCQL2JSONLikeOp(Array<FieldValue> args)
 
       if(s && !foundQ && !middleP)
       {
-         CartoSymExpOperation expOp { exp1 = e1, falseNullComparisons = true, exp2 = CartoSymExpString { string = unescaped } };
+         CQL2ExpOperation expOp { exp1 = e1, falseNullComparisons = true, exp2 = CQL2ExpString { string = unescaped } };
          if(ci)
-            expOp.exp2 = CartoSymExpCall
+            expOp.exp2 = CQL2ExpCall
             {
-               exp = CartoSymExpIdentifier { identifier = { string = CopyString("casei") } }, arguments = { [ expOp.exp2 ] }
+               exp = CQL2ExpIdentifier { identifier = { string = CopyString("casei") } }, arguments = { [ expOp.exp2 ] }
             };
          if(ai)
-            expOp.exp2 = CartoSymExpCall
+            expOp.exp2 = CQL2ExpCall
             {
-               exp = CartoSymExpIdentifier { identifier = { string = CopyString("accenti") } }, arguments = { [ expOp.exp2 ] }
+               exp = CQL2ExpIdentifier { identifier = { string = CopyString("accenti") } }, arguments = { [ expOp.exp2 ] }
             };
 
          expOp.op = (startP && endP) ? stringContains : startP ? stringEndsWith : endP ? stringStartsWith : equal;
@@ -351,9 +351,9 @@ static CartoSymExpression convertCQL2JSONLikeOp(Array<FieldValue> args)
    if(!result)
    {
       // Fallback approach
-      CartoSymExpCall expCall
+      CQL2ExpCall expCall
       {
-         exp = CartoSymExpIdentifier { identifier = { string = CopyString("like") } },
+         exp = CQL2ExpIdentifier { identifier = { string = CopyString("like") } },
          arguments = { [ e1, e2 ] }
       };
       result = expCall;
@@ -361,9 +361,9 @@ static CartoSymExpression convertCQL2JSONLikeOp(Array<FieldValue> args)
    return result;
 }
 
-static CartoSymExpression convertCQL2JSONGeometry(GeometryType gt, const FieldValue coordinatesOrGeomtries)
+static CQL2Expression convertCQL2JSONGeometry(GeometryType gt, const FieldValue coordinatesOrGeomtries)
 {
-   CartoSymExpression result = null;
+   CQL2Expression result = null;
    bool valid = false;
    Geometry * geometry = new0 Geometry[1];
    int i;
@@ -477,14 +477,14 @@ static CartoSymExpression convertCQL2JSONGeometry(GeometryType gt, const FieldVa
          if(collectionArray)
          {
             Array<Geometry> geomCollection { size = collectionArray.count };
-            // CartoSymExpArray collectionExpArray { elements = {} };
+            // CQL2ExpArray collectionExpArray { elements = {} };
             for(i = 0; i < collectionArray.count; i++)
             {
-               CartoSymExpression geomExp = convertCQL2JSON(collectionArray[i]);
-               if(geomExp && geomExp._class == class(CartoSymExpInstance))
+               CQL2Expression geomExp = convertCQL2JSON(collectionArray[i]);
+               if(geomExp && geomExp._class == class(CQL2ExpInstance))
                {
                   // should always enter here
-                  CartoSymExpInstance instExp = (CartoSymExpInstance)geomExp;
+                  CQL2ExpInstance instExp = (CQL2ExpInstance)geomExp;
                   Geometry * geom = instExp.instData;
                   if(geom) geomCollection[i] = *geom;
                   instExp.instData = null; // only instData at collection level?
@@ -502,7 +502,7 @@ static CartoSymExpression convertCQL2JSONGeometry(GeometryType gt, const FieldVa
    }
    if(valid)
    {
-      result = CartoSymExpInstance { instData = geometry, instanceFlags = { resolved = true }, expType = class(Geometry) };
+      result = CQL2ExpInstance { instData = geometry, instanceFlags = { resolved = true }, expType = class(Geometry) };
       buildInstanceFromInstData(result, null, null);
    }
    else
@@ -510,20 +510,7 @@ static CartoSymExpression convertCQL2JSONGeometry(GeometryType gt, const FieldVa
    return result;
 }
 
-Map<const String, const String> functionMap
-{ [
-   { "s_equals", "equals" },
-   { "s_contains", "contains" },
-   { "s_crosses", "crosses" },
-   { "s_disjoint", "disjoint" },
-   { "s_intersects", "intersects" },
-   { "s_touches", "touches" },
-   { "s_within" , "within" },
-   { "^", "pow" }
-] };
-
-
-/*static */Map<String, CQL2JSONTokenType> cql2JSONStringTokens
+static Map<String, CQL2TokenType> cql2JSONStringTokens
 { [
    { "<=", smallerEqual },
    { ">=", greaterEqual },
@@ -533,86 +520,11 @@ Map<const String, const String> functionMap
    { "and", and },
    { "or", or },
    { "in", in },
-   { "isNull", isNull },
    { "between", between },
    { "like", like },
    { "div", intDivide }
 ] };
 
-public enum CQL2JSONTokenType
-{
-   // Core Tokens
-   none = 9999,
-   syntaxError = 3000,
-   lexingError = 2000,
-   identifier = 1000,
-   constant,
-   stringLiteral,
-
-   endOfInput = 0, // FIXME (enum values with escaped char) '\0',
-
-   // Comparison
-   smaller = '<',
-   greater = '>',
-   equal = '=',
-
-   // Arithmetic
-   plus = '+',
-   minus = '-',
-   multiply = '*',
-   divide = '/',
-   power = '^',
-   modulo = '%',
-
-   /////////////////////////////////
-   comma = ',',
-
-   openParenthesis = '(',
-   closeParenthesis = ')',
-
-   openBracket = '[',
-   closeBracket = ']',
-
-   // Multi char symbols
-   notEqual = 256,   // <>
-   smallerEqual,     // <=
-   greaterEqual,     // >=
-   not,
-   or,
-   and,
-   is,
-   in,
-   between,
-   like,
-   intDivide,
-   isNull
-   ;
-};
-
-
-static Map<CQL2JSONTokenType, CartoSymTokenType> jsonOperatorConversionMap
-{ [
-   { none, none },
-   { smaller, smaller },
-   { greater, greater },
-   { not, not },
-   { or, or },
-   { and, and },
-   { plus, plus },
-   { minus, minus },
-   { multiply, multiply },
-   { divide, divide },
-   { modulo, modulo },
-   { equal, equal },
-   { notEqual, notEqual },
-   { smallerEqual, smallerEqual },
-   { greaterEqual, greaterEqual },
-   { intDivide, intDivide },
-   { power, none }, // Map to pow() function call?
-   { between, none }, // Will need special handling
-   { like, none },    // Will need special handling
-   { in, in }
-] };
 
 static Array buildDoubleArrayFromFV(const FieldValue value, int depth)
 {
@@ -657,19 +569,18 @@ static int getArrayDepth(const FieldValue value)
 }
 */
 
-// move to CartoSymHelper
-static void buildInstanceFromInstData(CartoSymExpression e, Geometry * collectionGeom, CartoSymExpArray collectionExpArray)
+static void buildInstanceFromInstData(CQL2Expression e, Geometry * collectionGeom, CQL2ExpArray collectionExpArray)
 {
-   if(e && e._class == class(CartoSymExpInstance))
+   if(e && e._class == class(CQL2ExpInstance))
    {
-      CartoSymExpInstance expInst = (CartoSymExpInstance)e;
+      CQL2ExpInstance expInst = (CQL2ExpInstance)e;
       Class expType = expInst.expType;
       if(expType == class(Geometry))
       {
          Geometry * geom = collectionGeom ? collectionGeom : (Geometry *)expInst.instData;
-         CartoSymMemberInit minit = null;
-         CartoSymInstantiation inst { };
-         CartoSymMemberInitList subList {};
+         CQL2MemberInit minit = null;
+         CQL2Instantiation inst { };
+         CQL2MemberInitList subList {};
          GeometryType gt = geom->type;
          int i;
          switch(gt)
@@ -677,28 +588,30 @@ static void buildInstanceFromInstData(CartoSymExpression e, Geometry * collectio
             case point:
             {
                GeoPoint point = geom->point;
-               CartoSymExpression pointExp = tupleOrPointToExpInstance(null, point);
-               expInst.instance = ((CartoSymExpInstance)pointExp).instance.copy();
+               CQL2Expression pointExp = tupleOrPointToExpInstance(null, point);
+               expInst.instance = ((CQL2ExpInstance)pointExp).instance.copy();
                delete pointExp; // we want to keep the instData in expInst
-               expInst.instance._class = CartoSymSpecName { name = CopyString("Point")};
+               expInst.instance._class = CQL2SpecName { name = CopyString("Point")};
                break;
             }
             case lineString:
             {
                LineString line = geom->lineString;
-               CartoSymExpArray linePointArray = buildExpArrayFromPoints(line._points, false);
+               CQL2ExpArray linePointArray = buildExpArrayFromPoints((Array<GeoPoint>)line.points, false);
                minit = { initializer = linePointArray };
-               inst._class = CartoSymSpecName { name = CopyString("LineString") };
+               inst._class = CQL2SpecName { name = CopyString("LineString") };
                break;
             }
             case polygon:
             {
                Polygon polygon = geom->polygon;
-               CartoSymExpArray innerArray {};
-               inst._class = CartoSymSpecName { name = CopyString("Polygon")};
-               for(i = 0; i < polygon.contours.count; i++)
+               CQL2ExpArray innerArray {};
+               Array<PolygonContour> contours = (Array<PolygonContour>)polygon.getContours();
+
+               inst._class = CQL2SpecName { name = CopyString("Polygon")};
+               for(i = 0; i < contours.count; i++)
                {
-                  CartoSymExpArray contourPointArray = buildExpArrayFromPoints(polygon.contours[i]._points, true);
+                  CQL2ExpArray contourPointArray = buildExpArrayFromPoints((Array<GeoPoint>)contours[i].points, true);
                   setPolygonMemberInitList(contourPointArray, subList, innerArray, i);
                   delete contourPointArray; // function copies
                }
@@ -714,15 +627,16 @@ static void buildInstanceFromInstData(CartoSymExpression e, Geometry * collectio
             case multiPolygon:
             {
                Array<Polygon> polygons = (Array<Polygon>)geom->multiPolygon;
-               CartoSymExpArray polygonsArray {};
+               CQL2ExpArray polygonsArray {};
                int j;
-               inst._class = CartoSymSpecName { name = CopyString("MultiPolygon")};
+               inst._class = CQL2SpecName { name = CopyString("MultiPolygon")};
                for(i = 0; i < polygons.count; i++)
                {
-                  CartoSymExpArray polyArrayExp { elements = {}};
-                  for(j = 0; j < polygons[i].contours.count; j++)
+                  Array<PolygonContour> contours = (Array<PolygonContour>)polygons[i].getContours();
+                  CQL2ExpArray polyArrayExp { elements = {}};
+                  for(j = 0; j < contours.count; j++)
                   {
-                     CartoSymExpArray contourPointArray  = buildExpArrayFromPoints(polygons[i].contours[j]._points, true);
+                     CQL2ExpArray contourPointArray  = buildExpArrayFromPoints((Array<GeoPoint>)contours[j].points, true);
                      polyArrayExp.elements.Add(contourPointArray);
                   }
                   setMultiPolygonMemberInitList(polyArrayExp, polygonsArray);
@@ -733,11 +647,11 @@ static void buildInstanceFromInstData(CartoSymExpression e, Geometry * collectio
             case multiLineString:
             {
                Array<LineString> lines = (Array<LineString>)geom->multiLineString;
-               CartoSymExpArray lineArray { elements = {} };
-               inst._class = CartoSymSpecName { name = CopyString("MultiLineString") };
+               CQL2ExpArray lineArray { elements = {} };
+               inst._class = CQL2SpecName { name = CopyString("MultiLineString") };
                for(i = 0; i < lines.count; i++)
                {
-                  CartoSymExpArray linePointArray = buildExpArrayFromPoints(lines[i]._points, false);
+                  CQL2ExpArray linePointArray = buildExpArrayFromPoints((Array<GeoPoint>)lines[i].points, false);
                   if(linePointArray)
                      setMultiLineMemberInitList(linePointArray, lineArray);
                }
@@ -747,17 +661,17 @@ static void buildInstanceFromInstData(CartoSymExpression e, Geometry * collectio
             case multiPoint:
             {
                Array<GeoPoint> points = (Array<GeoPoint>)geom->multiPoint;
-               CartoSymExpArray pointExpArray = buildExpArrayFromPoints(points, false);
-               inst._class = CartoSymSpecName { name = CopyString("MultiPoint") };
+               CQL2ExpArray pointExpArray = buildExpArrayFromPoints(points, false);
+               inst._class = CQL2SpecName { name = CopyString("MultiPoint") };
                minit = { initializer = pointExpArray };
                break;
             }
             case bbox:
             {
                GeoExtent extent = geom->bbox;
-               CartoSymExpression ptExp1 = tupleOrPointToExpInstance(null, extent.ll);
-               CartoSymExpression ptExp2 = tupleOrPointToExpInstance(null, extent.ur);
-               inst._class = CartoSymSpecName { name = CopyString("GeoExtent")};
+               CQL2Expression ptExp1 = tupleOrPointToExpInstance(null, extent.ll);
+               CQL2Expression ptExp2 = tupleOrPointToExpInstance(null, extent.ur);
+               inst._class = CQL2SpecName { name = CopyString("GeoExtent")};
                subList.setMember(class(GeoPoint), "ll", 0, true, ptExp1);
                subList.setMember(class(GeoPoint), "ur", 0, true, ptExp2);
                break;
@@ -769,16 +683,16 @@ static void buildInstanceFromInstData(CartoSymExpression e, Geometry * collectio
                   minit = { initializer = collectionExpArray };
                else
                {
-                  CartoSymExpArray expArray { elements = {} };
+                  CQL2ExpArray expArray { elements = {} };
                   for(i = 0; i < geometryColl.count; i++)
                   {
-                     CartoSymExpInstance subExpInst { instanceFlags = { resolved = true }, expType = class(Geometry) };
+                     CQL2ExpInstance subExpInst { instanceFlags = { resolved = true }, expType = class(Geometry) };
                      buildInstanceFromInstData(subExpInst, &geometryColl[i], null);
                      expArray.elements.Add(subExpInst);
                   }
                   minit = { initializer = expArray };
                }
-               inst._class = CartoSymSpecName { name = CopyString("GeometryCollection") };
+               inst._class = CQL2SpecName { name = CopyString("GeometryCollection") };
             }
             break;
          }
@@ -795,4 +709,44 @@ static void buildInstanceFromInstData(CartoSymExpression e, Geometry * collectio
          }
       }
    }
+}
+
+static CQL2Expression tupleOrPointToExpInstance(CQL2Tuple tuple, GeoPoint point)
+{
+   CQL2Expression e = null;
+   if(tuple || point != null)
+   {
+      CQL2MemberInitList memberInitList { };
+      CQL2Instantiation instantiation { };
+      int i, count = tuple ? tuple.list.count : 2;
+      for(i = 0; i < count ; i++)
+      {
+         CQL2Expression tExp = tuple ? convertToInternalCQL2(tuple.list[i]) : CQL2ExpConstant { constant = { type = { real }, r = i == 0 ? point.lon : point.lat } };
+         CQL2MemberInit minit { initializer = tExp };
+         memberInitList.Add(minit);
+      }
+      instantiation.members = { [ memberInitList ] };
+      e = CQL2ExpInstance { instance = instantiation };
+   }
+   return e;
+}
+
+static CQL2ExpArray buildExpArrayFromPoints(Array<GeoPoint> points, bool addFirstPoint)
+{
+   CQL2ExpArray expArray = null;
+   if(points && points.count)
+   {
+      expArray = { elements = {} };
+      for(p : points)
+      {
+         CQL2Expression pointExp = tupleOrPointToExpInstance(null, p);
+         expArray.elements.Add(pointExp);
+      }
+      if(addFirstPoint)
+      {
+         CQL2Expression pointExp = tupleOrPointToExpInstance(null, points[0]);
+         expArray.elements.Add(pointExp);
+      }
+   }
+   return expArray;
 }

@@ -1,0 +1,72 @@
+
+# Ecere files
+*.ews
+*.Makefile
+*.imp
+*.sym
+*.main.ec
+*.bowl
+*.mk
+*.cf
+linkobjects.lst
+
+# Intermediate dirs
+#obj/**/*.c
+obj/
+debug/
+release/
+dat/
+.configs/
+
+# CodeGuard files
+.codeguard/
+
+# Compiled source
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
+*.a
+*.la
+*.lo
+*.lai
+*.lib
+
+# Packages
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+*.bz2
+*.ear
+
+# Logs and databases
+*.log
+*.edb
+*.dbf
+*.sql
+*.sqlite
+*.sqlcipher
+*.search
+
+# Others
+*.diff
+*.copy.*
+* - Copy.*
+* - Copy (*).*
+
+# OS generated files
+.DS_Store
+ehthumbs.db
+Icon
+Thumbs.db
+*.lnk
+
+# Test outputs
+tests/parsing/output_TestCartoSymParsing

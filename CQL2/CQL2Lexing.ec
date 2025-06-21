@@ -1,6 +1,6 @@
-public import IMPORT_STATIC "ecere"
+public import IMPORT_STATIC "ecrt"
 
-public enum CartoSymTokenType
+public enum CQL2TokenType
 {
    // Core Tokens
    none = 9999,
@@ -12,47 +12,65 @@ public enum CartoSymTokenType
 
    endOfInput = 0, // FIXME (enum values with escaped char) '\0',
 
-   hashTag = '#',
-
    // Comparison
    smaller = '<',
    greater = '>',
 
-   // Logical Not
-   not = '!',
-
-   // Binary Logic
-   or = '|',
-   and = '&',
-   tilde = '~',
+   equal = '=',
 
    // Arithmetic
    plus = '+',
    minus = '-',
    multiply = '*',
    divide = '/',
+   power = '^',
    modulo = '%',
+
+   /////////////////////////////////
+   comma = ',',
+
    openParenthesis = '(',
    closeParenthesis = ')',
 
-   /////////////////////////////////
-   equal = '=',
-   comma = ',',
-   question = '?',
-   colon = ':',
-
    openBracket = '[',
    closeBracket = ']',
-   openCurly = '{',
+
+   // Non-standard CQL2
+   notAlt = '!',       //  Alternative logical Not
+
+   question = '?', // Ternary conditional If
+   colon = ':',    // Ternary conditional Else; CartoSym property assignment
+
+   orAlt = '|',   // Logical Or
+   andAlt = '&',  // Logical And
+
+   openCurly = '{',  // CartoSym-CSS Instances, Styling Rule blocks
    closeCurly = '}',
-   semiColon = ';',
-   dot = '.',
+
+   semiColon = ';', // End of property assignment
+   dot = '.',       // CartoSym-CSS Style Metadata; Member operator
+
+   // Text operators -- REVIEW: Will this be functions instead?
+   stringContains = '~',
+   stringEndsWith = '$',
 
    // Multi char symbols
-   notEqual = 256,   // !=
+   notEqual = 256,   // <> (or != alternative)
    smallerEqual,     // <=
    greaterEqual,     // >=
+   not,
+   or,
+   and,
+   is,
+   in,
+   between,
+   like,
+   intDivide,
+   notBetween, // REVIEW: Handled as separate token?
+   notLike,
+   notIn,
 
+   // Non-standard CQL2
    // Text Comparison
    stringContains,
    stringStartsWith,
@@ -61,18 +79,16 @@ public enum CartoSymTokenType
    stringNotStartsW,
    stringNotEndsW,
 
-   addAssign, // +=
-
-   intDivide,  // div
-
+   // Bitwise Arithmetic
    bitAnd,
    bitOr,
    bitXor,
    bitNot,
    lShift,
    rShift,
-   // Textual operators
-   in
+
+   addAssign, // += // REVIEW: Do we have this in CartoSym-CSS?
+
    ;
    ///////////////
 
@@ -82,11 +98,11 @@ public enum CartoSymTokenType
    {
       get
       {
-         return this == '-' || this == '!' || this == bitNot;
+         return this == '-' || this == not || this == notAlt || this == bitNot;
       }
    }
 
-   void print(File out, int indent, CartoSymOutputOptions o)
+   void print(File out, int indent, CQL2OutputOptions o)
    {
       if(this < 256)
          out.Print((char)this);
@@ -96,14 +112,14 @@ public enum CartoSymTokenType
          if(!initialized)
          {
             initialized = true;
-            for(r : stringTokens)
-                tokenStrings[r] = &r;
+            for(r : cql2StringTokens)
+               tokenStrings[r] = &r;
          }
          out.Print(tokenStrings[this]);
       }
    }
 
-   public String toString(CartoSymOutputOptions o)
+   public String toString(CQL2OutputOptions o)
    {
       TempFile f { };
       String s;
@@ -115,28 +131,40 @@ public enum CartoSymTokenType
    }
 };
 
-static const String tokenStrings[CartoSymTokenType];
-static Map<String, CartoSymTokenType> stringTokens
+static const String tokenStrings[CQL2TokenType];
+/*static */Map<CIString, CQL2TokenType> cql2StringTokens
 { [
    { "<=", smallerEqual },
    { ">=", greaterEqual },
+   { "IS", is },
+   { "<>", notEqual },
+   { "NOT", not },
+   { "AND", and },
+   { "OR", or },
+   { "IN", in },
+   { "NOT IN", notIn },
+   { "BETWEEN", between },
+   { "NOT BETWEEN", notBetween },
+   { "LIKE", like },
+   { "NOT LIKE", notLike },
+   { "DIV", intDivide },
+
+   // Non-standard CQL2
+   /*
    { "==", equal },
    { "!=", notEqual },
    { "&&", and },
-   { "not", not },
-   { "and", and },
    { "||", or },
-   { "or", or },
-   { "+=", addAssign },
-   { "in", in },
-   { "div", intDivide },
-   { "~",  stringContains },     // NOTE: These 3 are currently not using the character ASCII code (not in core eC syntax)
-   { "^",  stringStartsWith },
-   { "$",  stringEndsWith },
+   */
+   { "+=", addAssign }, // REVIEW: Will this be used in CartoSym-CSS?
+
+   // Text operators -- REVIEW: Will this be functions instead?
+   { "^^", stringStartsWith },
    { "!~", stringNotContains },
    { "!^", stringNotStartsW },
    { "!$", stringNotEndsW },
 
+   // Bitwise operators
    { "bitand", bitAnd },
    { "bitor", bitOr },
    { "bitxor", bitXor },
@@ -145,41 +173,43 @@ static Map<String, CartoSymTokenType> stringTokens
    { ">>", rShift }
 ] };
 
-static CartoSymTokenType matchToken(const String text)
+static CQL2TokenType matchToken(const String text)
 {
-   CartoSymTokenType type = identifier;
-   MapIterator<String, CartoSymTokenType> it { map = stringTokens };
+   CQL2TokenType type = identifier;
+   MapIterator<CIString, CQL2TokenType> it { map = cql2StringTokens };
+
    if(it.Index(text, false))
       type = it.data;
    return type;
 }
 
-class CartoSymToken
+public class CQL2Token
 {
 public:
-   property CartoSymTokenType type { get { return this ? type : 0; } };
+   property CQL2TokenType type { get { return this ? type : 0; } };
 private:
-   CartoSymTokenType type;
-   String text;
+   CQL2TokenType type;
+   public String text;
 
-   ~CartoSymToken()
+   ~CQL2Token()
    {
       delete text;
    }
 }
 
-static enum CartoSymLexingState
+static enum CQL2LexingState
 {
    none,
    string,
    identifier,
    number,
-   preprocessor,
+
+   // For CartoSym-CSS:
    singleLineComment,
    multiLineComment
 };
 
-public class CartoSymOutputOptions : uint
+public class CQL2OutputOptions : uint
 {
 public:
    bool reserved:1;
@@ -187,9 +217,10 @@ public:
    bool skipEmptyBlocks:1;
    bool skipImpliedID:1;
    bool multiLineInstance:1;
+   bool strictCQL2:1;
 }
 
-public struct CartoSymCodePosition
+public struct CQL2CodePosition
 {
 public:
    int line, col, pos;
@@ -198,18 +229,51 @@ public:
 
 #define LEXER_TEXT_BUFFER_SIZE   4096
 
-public class CartoSymLexer
+// Based on NameStartChar rule from https://www.w3.org/TR/REC-xml/#sec-common-syn
+bool isValidCQL2IdStart(unichar ch, bool allowColon)   // Strict CQL2 allows :, CartoSym-CSS disallows : (must be quoted)
+{
+   return (allowColon && ch == ':') || ch == '_' ||
+      (ch >= 'A' && ch <= 'Z') ||
+      (ch >= 'a' && ch <= 'z') ||
+      (ch >=    0xC0 && ch <=   0xD6) || // Skip ×
+      (ch >=    0xD8 && ch <=   0xF6) || // Skip ÷
+      (ch >=    0xF8 && ch <=  0x2FF) ||
+      (ch >=   0x370 && ch <=  0x37D) || // Skip ; odd semicolon
+      (ch >=   0x37F && ch <= 0x1FFF) ||
+      (ch >=  0x200C && ch <= 0x200D) ||
+      (ch >=  0x2070 && ch <= 0x218F) ||
+      (ch >=  0x2C00 && ch <= 0x2FEF) ||
+      (ch >=  0x3001 && ch <= 0xD7FF) ||
+      (ch >=  0xF900 && ch <= 0xFDCF) ||
+      (ch >=  0xFDF0 && ch <= 0xFFFD) ||
+      (ch >= 0x10000 && ch <= 0xEFFFF);
+}
+
+// Based on NameChar rule from https://www.w3.org/TR/REC-xml/#sec-common-syn
+bool isValidCQL2IdChar(unichar ch, bool allowColon)
+{
+   return isValidCQL2IdStart(ch, allowColon) ||
+      ch == '.' || ch == '·' /*0xB7*/ ||
+      (ch >= '0' && ch <= '9') ||
+      (ch >= 0x0300 && ch <= 0x036F) ||
+      (ch >= 0x203F && ch <= 0x2040);
+}
+
+public class CQL2Lexer
 {
    /*const */String input;
 
-   CartoSymTokenType type; type = none;
-   CartoSymToken token, nextToken;
-   Array<CartoSymToken> tokenStack { minAllocSize = 256 };
+   public CQL2TokenType type; type = none;   // REVIEW:  Can we use token.type from readToken() ?
+   CQL2Token token;
+   public CQL2Token nextToken;      // REVIEW:  probably doesn't need to be public if we use peekToken()
+   Array<CQL2Token> tokenStack { minAllocSize = 256 };
    int ambiguous, stackPos;
-   CartoSymCodePosition pos;
+   public CQL2CodePosition pos;  // REVIEW: Does this need to be public?
    char text[LEXER_TEXT_BUFFER_SIZE]; // FIXME: dynamic size
+   int wktContext;
+   bool strictCQL2;
 
-   ~CartoSymLexer()
+   ~CQL2Lexer()
    {
       delete input;
       tokenStack.Free();
@@ -217,27 +281,6 @@ public class CartoSymLexer
       delete token;
    }
 
-   /*
-      C constants rules, using CodeEditor code leveraging strtod()/strtol() for now
-
-         D         [0-9]
-         H         [a-fA-F0-9]
-         E         [Ee][+-]?{D}+
-         P         [Pp][+-]?{D}+
-         FS        (f|F|l|L|i|I|j|J)*
-         IS        (u|U|l|L|i|I|j|J)*
-
-         0[xX]{H}+{IS}?
-         0[xX]{H}+{P}{FS}?
-         0[xX]{H}*"."{H}+({P})?{FS}?
-         0[xX]{H}+"."{H}*({P})?{FS}?
-         0{D}+{IS}?
-         {D}+{IS}?
-         L?'(\\.|[^\\'])+'
-         {D}+{E}{FS}?
-         {D}*"."{D}+({E})?{FS}?
-         {D}+"."{D}*({E})?{FS}?
-   */
    bool readConstant(const char * word, int wordLen)
    {
       bool valid = false;
@@ -249,7 +292,7 @@ public class CartoSymLexer
       else
       {
          char * exponent;
-         bool isHex = (word[0] == '0' && (word[1] == 'x' || word[1] == 'X'));
+         bool isHex = !strictCQL2 && (word[0] == '#' || (word[0] == '0' && (word[1] == 'x' || word[1] == 'X')));
          if(isHex)
          {
             exponent = strchrmax(word, 'p', wordLen);
@@ -265,28 +308,37 @@ public class CartoSymLexer
       if(isReal)
          strtod(word, &s);      // strtod() seems to break on hex floats (e.g. 0x23e3p12, 0x1.fp3)
       else
-         strtol(word, &s, 0);
+         strtoll(word[0] == '#' ? word + 1 : word, &s, strictCQL2 ? 10 : word[0] == '#' ? 16 : 0);
       if(s && s != word)
       {
          // Check suffixes
          char ch;
-         int i;
+         int i = 0;
          int gotF = 0, gotL = 0, gotU = 0, gotI = 0;
          valid = true;
 
-         for(i = 0; valid && i < 5 && (ch = s[i]) && (isalnum(ch) || ch == '_'); i++)
+         if(strictCQL2)
          {
-            switch(ch)
+            // No suffixes supported in CQL
+            if(s[0] == '_' || isalpha(s[0]))
+               valid = false;
+         }
+         else
+         {
+            for(i = 0; valid && i < 5 && (ch = s[i]) && (isalnum(ch) || ch == '_'); i++)
             {
-               case 'f': case 'F': gotF++; if(gotF > 1 || !isReal) valid = false; break;
-               case 'l': case 'L':
-                  gotL++;
-                  if(gotL > 2 || (isReal && (gotL == 2 || gotF)) || (gotL == 2 && (s[i-1] != ch)))
-                  valid = false;
-                  break;
-               case 'u': case 'U': gotU++; if(gotU > 1 || isReal) valid = false; break;
-               case 'i': case 'I': case 'j': case 'J': gotI++; if(gotI > 1) valid = false; break;
-               default: valid = false;
+               switch(ch)
+               {
+                  case 'f': case 'F': gotF++; if(gotF > 1 || !isReal) valid = false; break;
+                  case 'l': case 'L':
+                     gotL++;
+                     if(gotL > 2 || (isReal && (gotL == 2 || gotF)) || (gotL == 2 && (s[i-1] != ch)))
+                     valid = false;
+                     break;
+                  case 'u': case 'U': gotU++; if(gotU > 1 || isReal) valid = false; break;
+                  case 'i': case 'I': case 'j': case 'J': gotI++; if(gotI > 1) valid = false; break;
+                  default: valid = false;
+               }
             }
          }
 
@@ -313,34 +365,35 @@ public class CartoSymLexer
       return valid;
    }
 
-   CartoSymTokenType prepareNextToken()
+   CQL2TokenType prepareNextToken()
    {
       if(type == none)
       {
          const String input = this.input;
-         CartoSymCodePosition pos = this.pos;
+         CQL2CodePosition pos = this.pos;
          int start = 0;
-         CartoSymTokenType type = none;
+         CQL2TokenType type = none;
          bool escaped = false;
-         char quoteChar = 0;
-         CartoSymLexingState lexingState = none;
-         bool backQuotedID = false;
+         CQL2LexingState lexingState = none;
+         bool doubleQuotedID = false;
+         bool continuingString = false;
 
          text[0] = 0;
          while(type == none)
          {
-            char ch = input[pos.pos];
+            int nb;
+            unichar ch = UTF8GetChar(input + pos.pos, &nb);
             bool advanceChar = ch ? true : false;
             switch(lexingState)
             {
                case string:
-                  if(!ch || (ch == quoteChar && !escaped))
+                  if(!ch || (ch == '\'' && !continuingString && !escaped && input[pos.pos+1] != '\''))
                   {
-                     const char * n = input + pos.pos+1;
-                     bool isContinued = false, isChar = false; //input[start] == '\'';
-                     if(!isChar)
+                     bool isContinued = false;
+                     if(!strictCQL2)
                      {
-                        CartoSymCodePosition np { pos.line, pos.col + 1, pos.pos + 1 };
+                        const char * n = input + pos.pos+1;
+                        CQL2CodePosition np { pos.line, pos.col + 1, pos.pos + 1 };
                         while(*n == ' ' || *n == '\t' || *n == '\r' || *n == '\n')
                         {
                            if(*n == '\r');
@@ -349,8 +402,11 @@ public class CartoSymLexer
                               np.col++, np.pos++, pos.col++;
                            n++;
                         }
-                        if(*n == '\"')
+                        if(*n == '\'')
+                        {
                            isContinued = true, pos = np;
+                           continuingString = true;
+                        }
                      }
                      if(!isContinued)
                      {
@@ -360,22 +416,25 @@ public class CartoSymLexer
                         type = /*isChar ? constant : */stringLiteral;
                      }
                   }
-                  else
-                     escaped = ch == '\\';
+                  else // TODO: double '' is the escape char for literals, except in like-predicate
+                  {
+                     escaped = ch == '\\' || ch == '\'';
+                     continuingString = false;
+                  }
                   break;
                case identifier:
                {
-                  if(ch != '_' && !isalnum(ch) && (!backQuotedID || ch == '`'))
+                  if((!doubleQuotedID || ch == '"') && !isValidCQL2IdChar(ch, strictCQL2))
                   {
                      int len = Min(pos.pos - start, sizeof(this.text)-1);
-                     if(ch == '`')
+                     if(ch == '"')
                         start++, len --;
                      else
                         advanceChar = false;
                      strncpy(this.text, input + start, len);
                      this.text[len] = 0;
-                     type = matchToken(text);
-                     backQuotedID = false;
+                     type = doubleQuotedID ? identifier : matchToken(text);
+                     doubleQuotedID = false;
                   }
                   break;
                }
@@ -385,7 +444,7 @@ public class CartoSymLexer
                   {
                      readConstant(input + start, pos.pos - start);
                      pos = this.pos;
-                     type = CartoSymTokenType::constant;
+                     type = CQL2TokenType::constant;
                      advanceChar = false;
                   }
                   break;
@@ -401,14 +460,6 @@ public class CartoSymLexer
                   if(ch == '\n' && (!pos.pos || input[pos.pos-1] != '\\'))
                   {
                      lexingState = 0;
-                     pos.line++, pos.col = 0;
-                  }
-                  break;
-               case preprocessor:
-                  if(ch == '\n' && (!pos.pos || input[pos.pos-1] != '\\'))
-                  {
-                     if(!pos.pos || input[pos.pos-1] != '\\')
-                        lexingState = 0;
                      pos.line++, pos.col = 0;
                   }
                   break;
@@ -443,81 +494,88 @@ public class CartoSymLexer
                            default: type = greater;
                         }
                         break;
-                     case '~': type = stringContains; break;
-                     case '^': type = stringStartsWith; break;
-                     case '$': type = stringEndsWith; break;
-
-                     case '!':
-                     {
-                        char next = input[pos.pos+1];
-                             if(next == '=') pos.pos++, pos.col++, type = notEqual;
-                        else if(next == '~') pos.pos++, pos.col++, type = stringNotContains;
-                        else if(next == '^') pos.pos++, pos.col++, type = stringNotStartsW;
-                        else if(next == '$') pos.pos++, pos.col++, type = stringNotEndsW;
-                        else
-                           type = not;
+                     case '~': if(!strictCQL2) { type = stringContains; break; }
+                     case '^':
+                        switch(input[pos.pos+1])
+                        {
+                           // REVIEW: += in CartoSym-CSS ?
+                           case '^': if(!strictCQL2) { type = stringStartsWith, pos.pos++, pos.col++; break; }
+                           default: type = power;
+                        }
                         break;
-                     }
+                     case '$': if(!strictCQL2) { type = stringEndsWith; break; }
+                     case '!':
+                        if(!strictCQL2)
+                        {
+                           char next = input[pos.pos+1];
+                                if(next == '=') pos.pos++, pos.col++, type = notEqual;
+                           else if(next == '~') pos.pos++, pos.col++, type = stringNotContains;
+                           else if(next == '^') pos.pos++, pos.col++, type = stringNotStartsW;
+                           else if(next == '$') pos.pos++, pos.col++, type = stringNotEndsW;
+                           else
+                              type = not;
+                           break;
+                        }
                      case '+':
                         switch(input[pos.pos+1])
                         {
-                           case '=': type = addAssign, pos.pos++, pos.col++; break;
+                           // REVIEW: += in CartoSym-CSS ?
+                           case '=': if(!strictCQL2) { type = addAssign, pos.pos++, pos.col++; break; }
                            default: type = plus;
                         }
                         break;
                      case '-': type = minus; break;
                      case '*': type = multiply; break;
-                     case '#': type = hashTag; break;
                      case '/':
                         switch(input[pos.pos+1])
                         {
-                           case '/': lexingState = singleLineComment, start = pos.pos, pos.pos++, pos.col++; break;
-                           case '*': lexingState = multiLineComment, start = pos.pos, pos.pos++, pos.col++; break;
+                           case '/': if(!strictCQL2) { lexingState = singleLineComment, start = pos.pos, pos.pos++, pos.col++; break; }
+                           case '*': if(!strictCQL2) { lexingState = multiLineComment, start = pos.pos, pos.pos++, pos.col++; break; }
                            default: type = divide;
                         }
                         break;
-                     case '%':
-                        switch(input[pos.pos+1])
-                        {
-                           case '>': type = '}', pos.pos++, pos.col++; break;
-                           default: type = modulo; break;
-                        }
-                        break;
+                     case '%': type = modulo; break;
                      case '|':
-                        switch(input[pos.pos+1])
+                        if(!strictCQL2)
                         {
-                           case '|': type = or, pos.pos++, pos.col++; break;
-                           default: type = or; break;
+                           switch(input[pos.pos+1])
+                           {
+                              case '|': type = or, pos.pos++, pos.col++; break;
+                              default: type = or; break;
+                           }
+                           break;
                         }
-                        break;
                      case '&':
-                        switch(input[pos.pos+1])
+                        if(!strictCQL2)
                         {
-                           case '&': type = and, pos.pos++, pos.col++; break;
-                           default: type = and;
+                           switch(input[pos.pos+1])
+                           {
+                              case '&': type = and, pos.pos++, pos.col++; break;
+                              default: type = and;
+                           }
                         }
                         break;
-                     case ':':
-                        if(input[pos.pos+1] == '>') type = ']', pos.pos++, pos.col++;
-                        else type = colon;
-                        break;
-                     case '.': type = dot; break;
-                     case '"': case '\'':
-                        quoteChar = ch;
+                     case '\'':
                         start = pos.pos+1;
                         lexingState = string;
                         break;
-                     case ',': case '(': case ')': case '?': case ';': case '{': case '}': case '[': case ']': case '\0':
-                        type = ch;
+                     case ',': case '(': case ')': case '[': case ']': case '\0':
+                        type = (char)ch;
                         break;
+                     case '?': case ';': case '{': case '}': case ':': case '.':
+                        if(!strictCQL2)
+                        {
+                           type = (CQL2TokenType)ch;
+                           break;
+                        }
                      default:
                         start = pos.pos;
-                        if(ch == '.' || isdigit(ch))
+                        if(ch == '.' || isdigit(ch) || ch == '#')
                            lexingState = number;
-                        else if(ch == '_' || isalpha(ch) || ch == '`')
+                        else if(ch == '"' || isValidCQL2IdStart(ch, strictCQL2))
                         {
-                           if(ch == '`')
-                              backQuotedID = true;
+                           if(ch == '"')
+                              doubleQuotedID = true;
                            lexingState = identifier;
                         }
                         else
@@ -532,7 +590,7 @@ public class CartoSymLexer
                   break;
                }
             }
-            if(advanceChar) pos.col++, pos.pos++;
+            if(advanceChar) pos.col++, pos.pos += nb;
             if(!ch)
             {
                if(lexingState == string)
@@ -551,7 +609,7 @@ public class CartoSymLexer
       return type;
    }
 
-   CartoSymToken peekToken()
+   public CQL2Token peekToken()
    {
       if(!nextToken)
       {
@@ -559,7 +617,7 @@ public class CartoSymLexer
          {
             nextToken = tokenStack[stackPos++];
             incref nextToken;
-            if(!ambiguous && stackPos == tokenStack.count)
+            if(stackPos == tokenStack.count)
             {
                tokenStack.Free();
                stackPos = 0;
@@ -567,7 +625,7 @@ public class CartoSymLexer
          }
          else
          {
-            CartoSymTokenType type = prepareNextToken();
+            CQL2TokenType type = prepareNextToken();
             if(type != endOfInput)
             {
                nextToken = { _refCount = 1, type = type, text = CopyString(text) };
@@ -584,7 +642,7 @@ public class CartoSymLexer
       return nextToken;
    }
 
-   CartoSymToken readToken()
+   public CQL2Token readToken()
    {
       if(!nextToken) peekToken();
       delete token;
@@ -593,7 +651,7 @@ public class CartoSymLexer
       return token;
    }
 
-   int pushAmbiguity()
+   public int pushAmbiguity()
    {
       if(!ambiguous && nextToken && stackPos == tokenStack.count)
       {
@@ -605,7 +663,7 @@ public class CartoSymLexer
       return stackPos - (nextToken ? 1 : 0);
    }
 
-   void clearAmbiguity()
+   public void clearAmbiguity()
    {
       if(!--ambiguous && stackPos > 0)
       {
@@ -613,13 +671,13 @@ public class CartoSymLexer
          for(i = 0; i < stackPos; i++)
             delete tokenStack[i];
          if(tokenStack.size > stackPos)
-            memmove(tokenStack.array, tokenStack.array + stackPos, (tokenStack.size - stackPos) * sizeof(CartoSymToken));
+            memmove(tokenStack.array, tokenStack.array + stackPos, (tokenStack.size - stackPos) * sizeof(CQL2Token));
          tokenStack.size -= stackPos;
          stackPos = 0;
       }
    }
 
-   void popAmbiguity(int i)
+   public void popAmbiguity(int i)
    {
       delete token;
       delete nextToken;

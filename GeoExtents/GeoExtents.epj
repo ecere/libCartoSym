@@ -1,0 +1,84 @@
+{
+   "Version" : 0.2,
+   "ModuleName" : "GeoExtents",
+   "Options" : {
+      "Warnings" : "All",
+      "TargetType" : "SharedLibrary",
+      "TargetFileName" : "GeoExtents",
+      "Libraries" : [
+         "ecrt"
+      ]
+   },
+   "Platforms" : [
+      {
+         "Name" : "linux",
+         "Options" : {
+            "Libraries" : [
+               "m"
+            ]
+         }
+      }
+   ],
+   "Configurations" : [
+      {
+         "Name" : "Debug",
+         "Options" : {
+            "Debug" : true,
+            "Optimization" : "None",
+            "PreprocessorDefinitions" : [
+               "_DEBUG",
+               "IMPORT_STATIC=\"\""
+            ],
+            "FastMath" : false
+         }
+      },
+      {
+         "Name" : "Release",
+         "Options" : {
+            "Optimization" : "Speed",
+            "PreprocessorDefinitions" : [
+               "IMPORT_STATIC=\"\""
+            ],
+            "FastMath" : true
+         }
+      },
+      {
+         "Name" : "Static",
+         "Options" : {
+            "Optimization" : "Speed",
+            "PreprocessorDefinitions" : [
+               "IMPORT_STATIC=static",
+               "ECERE_STATIC"
+            ],
+            "TargetType" : "StaticLibrary",
+            "TargetFileName" : "GeoExtentsStatic",
+            "Libraries" : [
+
+            ],
+            "FastMath" : true
+         },
+         "Platforms" : [
+            {
+               "Name" : "linux",
+               "Options" : {
+                  "Libraries" : [
+                     "m",
+                     "X11",
+                     "curses",
+                     "Xrender",
+                     "Xext",
+                     "z"
+                  ]
+               }
+            }
+         ]
+      }
+   ],
+   "Files" : [
+      "GeoExtent.ec"
+   ],
+   "ResourcesPath" : "",
+   "Resources" : [
+
+   ]
+}

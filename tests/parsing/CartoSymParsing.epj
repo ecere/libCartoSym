@@ -1,0 +1,82 @@
+{
+   "Version" : 0.2,
+   "ModuleName" : "CartoSymParsing",
+   "Options" : {
+      "Warnings" : "All",
+      "PreprocessorDefinitions" : [
+         "IMPORT_STATIC=\"\""
+      ],
+      "TargetType" : "Executable",
+      "TargetFileName" : "CartoSymParsing",
+      "Libraries" : [
+         "ecrt"
+      ],
+      "Console" : true
+   },
+   "Platforms" : [
+      {
+         "Name" : "linux",
+         "Options" : {
+            "Libraries" : [
+               "m"
+            ]
+         }
+      }
+   ],
+   "Configurations" : [
+      {
+         "Name" : "Debug",
+         "Options" : {
+            "Debug" : true,
+            "Optimization" : "None",
+            "PreprocessorDefinitions" : [
+               "_DEBUG"
+            ],
+            "FastMath" : false
+         }
+      },
+      {
+         "Name" : "Release",
+         "Options" : {
+            "Debug" : false,
+            "Optimization" : "Speed",
+            "FastMath" : true
+         }
+      }
+   ],
+   "Files" : [
+      {
+         "Folder" : "testing",
+         "Files" : [
+            "../../../eC/extras/testing/testingFramework.ec"
+         ]
+      },
+      {
+         "Folder" : "tests",
+         "Files" : [
+            "../cscss/1-core.cscss",
+            "../cscss/2-vector-polygon.cscss",
+            "../cscss/3-vector-line.cscss",
+            "../cscss/4-vector-point.cscss",
+            "../cscss/5-coverage-dem.cscss",
+            "../cscss/6-coverage-sentinel2.cscss",
+            "../cscss/7-coverage-ndvi.cscss",
+            "../cscss/8-coverage-hillshading.cscss",
+            "../cscss/9-coverage-hillshading-opacity.cscss",
+            "../cscss/10-natural_earth_economies.cscss",
+            "../cscss/11-natural_earth_continents.cscss"
+         ]
+      },
+      "CartoSymParsing.ec",
+      "../../SLDSE/sldWriter.ec",
+      "../../SLDSE/sldParser.ec",
+      "../../../eC/extras/XMLParser.ec",
+      "../../MapboxStyles/mbglParser.ec",
+      "../../MapboxStyles/gggLevels.ec",
+      "../../MapboxStyles/mbglWriter.ec"
+   ],
+   "ResourcesPath" : "",
+   "Resources" : [
+
+   ]
+}
