@@ -30,6 +30,7 @@ SFGeometry: GeoExtents
 
 GeoExtents:
 	+cd GeoExtents && $(_MAKE)
+	+cd GeoExtents && $(_MAKE) -f Makefile.static
 
 test: all
 	+cd tests/parsing && $(_MAKE) test
@@ -41,6 +42,7 @@ clean:
 	+cd SFCollections && $(_MAKE) clean
 	+cd SFGeometry && $(_MAKE) clean
 	+cd GeoExtents && $(_MAKE) clean
+	+cd GeoExtents && $(_MAKE) -f Makefile.static clean
 	+cd tests/parsing && $(_MAKE) clean
 	
 realclean:
@@ -50,6 +52,7 @@ realclean:
 	+cd SFCollections && $(_MAKE) realclean
 	+cd SFGeometry && $(_MAKE) realclean
 	+cd GeoExtents && $(_MAKE) realclean
+	+cd GeoExtents && $(_MAKE) -f Makefile.static realclean
 	+cd tests/parsing && $(_MAKE) realclean
 	
 distclean:
@@ -59,4 +62,5 @@ distclean:
 	+cd SFCollections && $(_MAKE) distclean
 	+cd SFGeometry && $(_MAKE) distclean
 	+cd GeoExtents && $(_MAKE) distclean
+	+cd GeoExtents && $(_MAKE) -f Makefile.static distclean
 	+cd tests/parsing && $(_MAKE) distclean
