@@ -19,3 +19,13 @@ Additional functionality related to implementing CartoSym 2.0 in renderers, such
 
 Object-oriented bindings for _libCartoSym_ automatically generated using Ecere's [binding generating tool (bgen)](https://github.com/ecere/bgen) from the eC library will be available
 for the C, C++ and Python programming languages, with eventual support for Java and Rust planned as well.
+
+## Building libCartoSym and dependency libraries
+
+The recommended method to obtain and build libCartoSym and its dependency libraries is to follow the instructions in [BUILDING.md](BUILDING.md),
+or running [fetchAndBuild.sh](fetchAndBuild.sh) / [fetchAndBuild.bat](fetchAndBuild.bat).
+
+This method will use the [stand-alone eC development kit and eC runtime library](https://github.com/ecere/eC) (using the `extras` branch with necessary additional modules),
+avoiding unnecessary dependencies on other components of the Ecere SDK runtime library.
+
+The script will clone both the eC and libCartoSym repositories and build everything (not yet including bindings to other programming languages).
