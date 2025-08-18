@@ -66,7 +66,8 @@
          "Files" : [
             "convertStyle.ec",
             "convertGeometry.ec",
-            "convertFeatures.ec"
+            "convertFeatures.ec",
+            "convertExpression.ec"
          ]
       },
       {

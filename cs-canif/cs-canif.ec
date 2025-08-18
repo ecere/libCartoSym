@@ -6,6 +6,7 @@ private:
 import "convertStyle"
 import "convertGeometry"
 import "convertFeatures"
+import "convertExpression"
 
 static void showSyntax()
 {
@@ -23,6 +24,9 @@ static void showSyntax()
       "\n"
       "Supported feature collection encodings:\n"
       "   .geojson (GeoJSON), .wkbc (Well-Known text Binary Collection)\n"
+      "\n"
+      "Supported expressions encodings:\n"
+      "   .cql2 (CQL2-Text), .cql2json (CQL2-JSON -- currently only as input)\n"
       "\n"
       "Commands:\n"
       "\n"
@@ -127,7 +131,8 @@ public class CSCanif : Application
                      GetExtension(outputFile, outExt);
 
                      if(!strcmpi(ext, "csjson") || !strcmpi(ext, "cscss") ||
-                        !strcmpi(ext, "json") || !strcmpi(ext, "mbgl") ||
+                        (!strcmpi(ext, "json") && strcmpi(outExt, "cql2") && strcmpi(outExt, "cql2text")) ||
+                        !strcmpi(ext, "mbgl") ||
                         !strcmpi(ext, "sld"))
                         result = convertStyle(inputFile, null, outputFile, null, typeMap);
                      else if(!strcmpi(ext, "wkt") || !strcmpi(ext, "wkb") ||
@@ -136,10 +141,9 @@ public class CSCanif : Application
                         result = convertGeometry(inputFile, null, outputFile, null);
                      else if(!strcmpi(ext, "geojson") || !strcmpi(ext, "wkbc"))
                         result = convertFeatures(inputFile, null, outputFile, null);
-                     /*
-                     else if(!strcmpi(ext, "cql2") || !strcmpi(ext, "cql2json") || !strcmpi(ext, "cql2text"))
-                        result = convertCQL2Expression(inputFile, null, outputFile, null);
-                     */
+                     else if(!strcmpi(ext, "json") || !strcmpi(ext, "cql2json") ||
+                             !strcmpi(ext, "cql2") || !strcmpi(ext, "cql2text"))
+                        result = convertExpression(inputFile, null, outputFile, null);
                      else
                         PrintLn($"Unrecognized input extension");
                   }

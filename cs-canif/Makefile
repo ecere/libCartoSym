@@ -80,6 +80,7 @@ _ECSOURCES = \
 	commands/convertStyle.ec \
 	commands/convertGeometry.ec \
 	commands/convertFeatures.ec \
+	commands/convertExpression.ec \
 	../MapboxStyles/gggLevels.ec \
 	../MapboxStyles/mbglParser.ec \
 	../MapboxStyles/mbglWriter.ec \
@@ -196,6 +197,9 @@ $(OBJ)convertGeometry.sym: commands/convertGeometry.ec
 $(OBJ)convertFeatures.sym: commands/convertFeatures.ec
 	$(ECP) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) -c $(call quote_path,commands/convertFeatures.ec) -o $(call quote_path,$@)
 
+$(OBJ)convertExpression.sym: commands/convertExpression.ec
+	$(ECP) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) -c $(call quote_path,commands/convertExpression.ec) -o $(call quote_path,$@)
+
 $(OBJ)gggLevels.sym: ../MapboxStyles/gggLevels.ec
 	$(ECP) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) -c $(call quote_path,../MapboxStyles/gggLevels.ec) -o $(call quote_path,$@)
 
@@ -228,6 +232,9 @@ $(OBJ)convertGeometry.c: commands/convertGeometry.ec $(OBJ)convertGeometry.sym |
 $(OBJ)convertFeatures.c: commands/convertFeatures.ec $(OBJ)convertFeatures.sym | $(SYMBOLS)
 	$(ECC) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) $(FVISIBILITY) -c $(call quote_path,commands/convertFeatures.ec) -o $(call quote_path,$@) -symbols $(OBJ)
 
+$(OBJ)convertExpression.c: commands/convertExpression.ec $(OBJ)convertExpression.sym | $(SYMBOLS)
+	$(ECC) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) $(FVISIBILITY) -c $(call quote_path,commands/convertExpression.ec) -o $(call quote_path,$@) -symbols $(OBJ)
+
 $(OBJ)gggLevels.c: ../MapboxStyles/gggLevels.ec $(OBJ)gggLevels.sym | $(SYMBOLS)
 	$(ECC) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) $(FVISIBILITY) -c $(call quote_path,../MapboxStyles/gggLevels.ec) -o $(call quote_path,$@) -symbols $(OBJ)
 
@@ -259,6 +266,9 @@ $(OBJ)convertGeometry$(O): $(OBJ)convertGeometry.c
 
 $(OBJ)convertFeatures$(O): $(OBJ)convertFeatures.c
 	$(CC) $(CFLAGS) $(PRJ_CFLAGS) $(FVISIBILITY) -c $(call quote_path,$(OBJ)convertFeatures.c) -o $(call quote_path,$@)
+
+$(OBJ)convertExpression$(O): $(OBJ)convertExpression.c
+	$(CC) $(CFLAGS) $(PRJ_CFLAGS) $(FVISIBILITY) -c $(call quote_path,$(OBJ)convertExpression.c) -o $(call quote_path,$@)
 
 $(OBJ)gggLevels$(O): $(OBJ)gggLevels.c
 	$(CC) $(CFLAGS) $(PRJ_CFLAGS) $(FVISIBILITY) -c $(call quote_path,$(OBJ)gggLevels.c) -o $(call quote_path,$@)
