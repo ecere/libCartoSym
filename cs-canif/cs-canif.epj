@@ -65,7 +65,8 @@
          "Folder" : "commands",
          "Files" : [
             "convertStyle.ec",
-            "convertGeometry.ec"
+            "convertGeometry.ec",
+            "convertFeatures.ec"
          ]
       },
       {

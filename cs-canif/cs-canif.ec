@@ -5,6 +5,7 @@ private:
 
 import "convertStyle"
 import "convertGeometry"
+import "convertFeatures"
 
 static void showSyntax()
 {
@@ -18,11 +19,15 @@ static void showSyntax()
       "   .cscss (CartoSym-CSS), .sld (SLD/SE), .json (Mapbox GL / Map Libre)\n"
       "\n"
       "Supported geometry encodings:\n"
-      "   .wkt (Well-Known Text), .wkb (Well-Known text Binary)\n"
+      "   .wkt (Well-Known Text), .wkb (Well-Known text Binary), .geojson (GeoJSON)\n"
+      "\n"
+      "Supported feature collection encodings:\n"
+      "   .geojson (GeoJSON), .wkbc (Well-Known text Binary Collection)\n"
       "\n"
       "Commands:\n"
+      "\n"
       "   convert <input file> <output file>\n"
-      "      Transcode cartographic symbology style sheet, geometry, feature collections or expressions\n"
+      "      Transcode cartographic symbology style sheet, geometry, feature collection or expression\n"
       "\n"
 //      "Options:\n"
       );
@@ -129,9 +134,9 @@ public class CSCanif : Application
                         (!strcmpi(ext, "geojson") &&
                            (strcmpi(outExt, "wkbc") && strcmpi(outExt, "geojson"))))
                         result = convertGeometry(inputFile, null, outputFile, null);
-                     /*
                      else if(!strcmpi(ext, "geojson") || !strcmpi(ext, "wkbc"))
-                        result = convertFeatureCollection(inputFile, null, outputFile, null);
+                        result = convertFeatures(inputFile, null, outputFile, null);
+                     /*
                      else if(!strcmpi(ext, "cql2") || !strcmpi(ext, "cql2json") || !strcmpi(ext, "cql2text"))
                         result = convertCQL2Expression(inputFile, null, outputFile, null);
                      */

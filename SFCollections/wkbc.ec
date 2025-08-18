@@ -70,18 +70,18 @@ public FeatureCollection readWKBCollection(File f)
          case point:
             if(cType.z)
             {
-               fc = FeatureCollection<Point3DFeature> { };
+               fc = FeatureCollection<Point3DFeature> { type = { vector, points, is3D = true } };
             }
             else
             {
-               fc = FeatureCollection<PointFeature> { };
+               fc = FeatureCollection<PointFeature> { type = { vector, points } };
             }
             break;
          case lineString:
-            fc = FeatureCollection<LineFeature> { };
+            fc = FeatureCollection<LineFeature> { type = { vector, lines } };
             break;
          case polygon:
-            fc = FeatureCollection<PolygonFeature> { };
+            fc = FeatureCollection<PolygonFeature> { type = { vector, polygons } };
             break;
       }
       fc.size = featuresCount;

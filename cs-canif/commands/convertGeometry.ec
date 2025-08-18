@@ -198,7 +198,7 @@ bool convertGeometry(
    else if(!strcmpi(inType, "wkb"))
    {
       if(!readWKBGeometry(geometry, inputFile))
-         PrintLn($"Failed to parse ", inputFile, $" as Well-Known Binary geometry");
+         PrintLn($"Failed to parse ", inputFile, $" as Well-Known text Binary geometry");
    }
 
    if(geometry.type != none)
@@ -222,7 +222,7 @@ bool convertGeometry(
          if(writeWKBGeometry(geometry, outputFile))
             result = true;
          else
-            PrintLn($"Failed to write geometry as Well-Known Binary geometry");
+            PrintLn($"Failed to write geometry as Well-Known text Binary geometry");
       }
       geometry.OnFree();
    }
