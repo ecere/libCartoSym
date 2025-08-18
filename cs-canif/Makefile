@@ -82,6 +82,8 @@ _ECSOURCES = \
 	commands/convertFeatures.ec \
 	commands/convertExpression.ec \
 	commands/de9imRelations.ec \
+	commands/evalExpression.ec \
+	commands/evalStyle.ec \
 	../MapboxStyles/gggLevels.ec \
 	../MapboxStyles/mbglParser.ec \
 	../MapboxStyles/mbglWriter.ec \
@@ -204,6 +206,12 @@ $(OBJ)convertExpression.sym: commands/convertExpression.ec
 $(OBJ)de9imRelations.sym: commands/de9imRelations.ec
 	$(ECP) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) -c $(call quote_path,commands/de9imRelations.ec) -o $(call quote_path,$@)
 
+$(OBJ)evalExpression.sym: commands/evalExpression.ec
+	$(ECP) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) -c $(call quote_path,commands/evalExpression.ec) -o $(call quote_path,$@)
+
+$(OBJ)evalStyle.sym: commands/evalStyle.ec
+	$(ECP) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) -c $(call quote_path,commands/evalStyle.ec) -o $(call quote_path,$@)
+
 $(OBJ)gggLevels.sym: ../MapboxStyles/gggLevels.ec
 	$(ECP) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) -c $(call quote_path,../MapboxStyles/gggLevels.ec) -o $(call quote_path,$@)
 
@@ -242,6 +250,12 @@ $(OBJ)convertExpression.c: commands/convertExpression.ec $(OBJ)convertExpression
 $(OBJ)de9imRelations.c: commands/de9imRelations.ec $(OBJ)de9imRelations.sym | $(SYMBOLS)
 	$(ECC) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) $(FVISIBILITY) -c $(call quote_path,commands/de9imRelations.ec) -o $(call quote_path,$@) -symbols $(OBJ)
 
+$(OBJ)evalExpression.c: commands/evalExpression.ec $(OBJ)evalExpression.sym | $(SYMBOLS)
+	$(ECC) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) $(FVISIBILITY) -c $(call quote_path,commands/evalExpression.ec) -o $(call quote_path,$@) -symbols $(OBJ)
+
+$(OBJ)evalStyle.c: commands/evalStyle.ec $(OBJ)evalStyle.sym | $(SYMBOLS)
+	$(ECC) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) $(FVISIBILITY) -c $(call quote_path,commands/evalStyle.ec) -o $(call quote_path,$@) -symbols $(OBJ)
+
 $(OBJ)gggLevels.c: ../MapboxStyles/gggLevels.ec $(OBJ)gggLevels.sym | $(SYMBOLS)
 	$(ECC) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) $(FVISIBILITY) -c $(call quote_path,../MapboxStyles/gggLevels.ec) -o $(call quote_path,$@) -symbols $(OBJ)
 
@@ -279,6 +293,12 @@ $(OBJ)convertExpression$(O): $(OBJ)convertExpression.c
 
 $(OBJ)de9imRelations$(O): $(OBJ)de9imRelations.c
 	$(CC) $(CFLAGS) $(PRJ_CFLAGS) $(FVISIBILITY) -c $(call quote_path,$(OBJ)de9imRelations.c) -o $(call quote_path,$@)
+
+$(OBJ)evalExpression$(O): $(OBJ)evalExpression.c
+	$(CC) $(CFLAGS) $(PRJ_CFLAGS) $(FVISIBILITY) -c $(call quote_path,$(OBJ)evalExpression.c) -o $(call quote_path,$@)
+
+$(OBJ)evalStyle$(O): $(OBJ)evalStyle.c
+	$(CC) $(CFLAGS) $(PRJ_CFLAGS) $(FVISIBILITY) -c $(call quote_path,$(OBJ)evalStyle.c) -o $(call quote_path,$@)
 
 $(OBJ)gggLevels$(O): $(OBJ)gggLevels.c
 	$(CC) $(CFLAGS) $(PRJ_CFLAGS) $(FVISIBILITY) -c $(call quote_path,$(OBJ)gggLevels.c) -o $(call quote_path,$@)

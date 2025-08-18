@@ -449,11 +449,14 @@ private:
 
    // FIXME: The double causes padding between base CQL2Evaluator and this class to be added in external instantiation, while this module does not ahve it
    public void setFeatureID(int64 value) { featureID = value; }
+   public void setLayerID(const String value) { layerID = value; }
    public void setFeatureGeometry(Geometry * value) { featureGeometry = value; }
    public void setPosition(Point value, uint i, uint j, uint k) { x = value.x; y = value.y; this.i = i; this.j = j; this.k = k; }
    public void setSelectedFields(Array<const CIString> value) { fieldNames = value; }
    public void setTimeInterval(TimeIntervalSince1970 value) { time = value; }
    public void setSceneID(const String value) { sceneID = value; } // Probably don't need to make a copy here
+   public void setAttribsMap(HashMap<int64, Map<String, FieldValue>> value) { attribsMap = value; } // Probably don't need to make a copy here
+   public void setScaleDenominator(double value) { scale = value; }
    /* TODO:
    public void flushAttributeRequest() { cache.flushAttributeRequests(); }
    void setGeoDataCache(GeoDataCache value)
@@ -477,6 +480,8 @@ private:
    // FIXME: Having the cache before featureID was having wrong padding data layout at all
 private:
    // TODO: GeoDataCache cache;
+   HashMap<int64, Map<String, FieldValue>> attribsMap; // REVIEW: Using attribs map for now
+   const String layerID;
 
    Class resolve(const CQL2Identifier identifier, bool isFunction, int * fieldIX, CartoExpFlags * flags)
    {
@@ -574,8 +579,31 @@ private:
             flags->record = true;
             if(*fieldIX == -1)
                flags->invalid = true;
+         }*/
+         else if(attribsMap)
+         {
+            flags->record = true;
+            if(featureID != -1)
+            {
+               Map<String, FieldValue> ftAttribs = attribsMap[featureID];
+
+               if(ftAttribs)
+               {
+                  MapIterator<String, FieldValue> it { map = ftAttribs };
+                  if(it.Index(identifier.string, false))
+                  {
+                     const FieldValue * v = (FieldValue *)it.GetData();
+                     switch(v->type.type)
+                     {
+                        case real: expType = class(double); break;
+                        case integer: expType = class(int64); break;
+                        case text: expType = class(String); break;
+                        case nil : expType = class(int64); break;
+                     }
+                  }
+               }
+            }
          }
-*/
       }
       else
       {
@@ -610,7 +638,25 @@ private:
          flags->resolved = status == success;
          flags->isNotLiteral = true; //TOCHECK: verify if setting record=true instead would not break filterAndDeriveCells/pixels
       }
-      else if(!isFunction && coverage && fieldIX != -1)
+      */
+      if(!isFunction && attribsMap && fid != -1)
+      {
+         Map<String, FieldValue> ftAttribs = attribsMap[fid];
+
+         value.type.type = nil;
+         if(ftAttribs)
+         {
+            MapIterator<String, FieldValue> it { map = ftAttribs };
+            if(it.Index(identifier.string, false))
+            {
+               const FieldValue * v = (const FieldValue *)it.GetData();
+               value.OnCopy(v);
+            }
+            flags->resolved = true;
+            flags->isNotLiteral = true; //TOCHECK: verify if setting record=true instead would not break filterAndDeriveCells/pixels
+         }
+      }
+      /*else if(!isFunction && coverage && fieldIX != -1)
       {
          flags->isNotLiteral = true;
          if(fieldIX >= 0 && fieldIX < coverage->numBands)
@@ -669,10 +715,10 @@ private:
          }
          else
             value = { type = { nil } };
-      }
+      }*/
       else if(isFunction)
       {
-         if(fieldIX != -1 || coverage)
+         if(fieldIX != -1) // TODO: || coverage)
          {
             // TODO: function support on coverage
             value = { type = { integer }, i = fieldIX };
@@ -680,7 +726,7 @@ private:
          }
          flags->isNotLiteral = true;
       }
-      else*/
+      else
       {
          if(identifier.string)
          {
@@ -941,10 +987,9 @@ private:
       {
          if(!strcmp(prop.name, "type"))
          {
-            // TODO:
-            // value.s = cache.data.cscssID; //title;
-            // value.type = { text };
-            // flags->resolved = true;
+            value.s = (String)(void *)"vector"; // TODO: Gridded Coverage etc.
+            value.type = { text };
+            flags->resolved = true;
          }
          /* TODO: if(!strcmp(prop.name, "id") && cache && cache.data)
          {
@@ -954,6 +999,12 @@ private:
             value.type = { text };
             flags->resolved = true;
          }*/
+         if(!strcmp(prop.name, "id") && layerID)
+         {
+            value.s = (String)(void *)layerID; //title;
+            value.type = { text };
+            flags->resolved = true;
+         }
       }
       if(exp.expType == class(CSScene))
       {
@@ -1278,7 +1329,11 @@ private:
          else if(!strcmp(specName.name, "TimeInterval"))
             c = class(TimeIntervalSince1970);
          else
+         {
             c = eSystem_FindClass(specName._class.module, specName.name);
+            if(!c)
+               c = eSystem_FindClass(specName._class.module.application, specName.name);
+         }
       }
       else
          c = destType;

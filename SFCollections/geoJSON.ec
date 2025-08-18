@@ -46,6 +46,26 @@ public int printDoubleDecFile(File f, double value, int numDec)
    return len;
 }
 
+// REVIEW: To avoid parsing warnings...
+public class OGCAPILink
+{
+public:
+   String rel;
+   String type;
+   String title;
+   String hreflang;
+   String href;
+
+   ~OGCAPILink()
+   {
+      delete rel;
+      delete type;
+      delete title;
+      delete hreflang;
+      delete href;
+   }
+}
+
 public class GeoJSONFeatureCollection
 {
 private:

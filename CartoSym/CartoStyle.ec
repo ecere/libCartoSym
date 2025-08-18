@@ -327,9 +327,12 @@ public:
       while(m && it) //it.Prev())
       {
          StylingRule block = (StylingRule)(uint64)it.data;
-         InstanceMask bm = block.mask & m;
-         if(bm)
-            m = block.apply2(object, m, evaluator, flg, false, fm);
+         if(block._class == class(StylingRule))
+         {
+            InstanceMask bm = block.mask & m;
+            if(bm)
+               m = block.apply2(object, m, evaluator, flg, false, fm);
+         }
          it = it.prev;
       }
       return m;

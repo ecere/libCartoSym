@@ -68,7 +68,9 @@
             "convertGeometry.ec",
             "convertFeatures.ec",
             "convertExpression.ec",
-            "de9imRelations.ec"
+            "de9imRelations.ec",
+            "evalExpression.ec",
+            "evalStyle.ec"
          ]
       },
       {

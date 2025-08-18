@@ -2590,10 +2590,41 @@ public:
       }
       if(memberID)
       {
-         *dataMember = eClass_FindDataMember(type, memberID, type.module, null, null);
-         if(!*dataMember)
+         const String dot = memberID ? strstr(memberID, ".") : null;
+         if(dot)
          {
-            *dataMember = (DataMember)eClass_FindProperty(type, memberID, type.module);
+            Array<String> split = splitIdentifier(memberID);
+            for(s : split)
+            {
+               const String idPart = s;
+               if(type)
+               {
+                  *dataMember = eClass_FindDataMember(type, idPart, type.module, null, null);
+                  if(!*dataMember)
+                  {
+                     *dataMember = (DataMember)eClass_FindProperty(type, idPart, type.module);
+                  }
+                  if(*dataMember)
+                  {
+                     if(!dataMember->dataTypeClass)
+                        dataMember->dataTypeClass = type =
+                           eSystem_FindClass(dataMember->_class.module, dataMember->dataTypeString);
+                     else
+                        type = dataMember->dataTypeClass;
+                  }
+                  else
+                     type = null;
+               }
+            }
+            delete split;
+         }
+         else
+         {
+            *dataMember = eClass_FindDataMember(type, memberID, type.module, null, null);
+            if(!*dataMember)
+            {
+               *dataMember = (DataMember)eClass_FindProperty(type, memberID, type.module);
+            }
          }
          if(*dataMember)
          {
@@ -2615,6 +2646,7 @@ public:
       String identifierStr = targetStylesMask ? CopyString(evaluator.evaluatorClass.stringFromMask(targetStylesMask, instClass)) : null;
       Class type = c;
       DataMember dataMember = null;
+
       if(type && lhValue)
       {
          String v = lhValue.toString(0);
@@ -2627,6 +2659,7 @@ public:
          }
          else
             identifierStr = v;
+
          destType = type = resolveLH(lhValue, type, &dataMember);
       }
       else if(memberID)

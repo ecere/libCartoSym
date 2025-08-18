@@ -33,7 +33,8 @@ bool writeWKBCFeatures(FeatureCollection features, const String fileName)
    return result;
 }
 
-FeatureCollection readGeoJSONFeatures(const String fileName)
+FeatureCollection readGeoJSONFeatures(const String fileName,
+   HashMap<int64, Map<String, FieldValue>> attributes)
 {
    FeatureCollection result = null;
    if(fileName)
@@ -41,7 +42,7 @@ FeatureCollection readGeoJSONFeatures(const String fileName)
       File f = FileOpen(fileName, read);
       if(f)
       {
-         result = loadGeoJSON(f, null, true);
+         result = loadGeoJSON(f, attributes, false);
          delete f;
       }
    }
@@ -87,7 +88,7 @@ bool convertFeatures(
 
    if(!strcmpi(inType, "geojson") || !strcmpi(inType, "json"))
    {
-      features = readGeoJSONFeatures(inputFile);
+      features = readGeoJSONFeatures(inputFile, null);
       if(!features)
          PrintLn($"Failed to parse ", inputFile, $" as GeoJSON features");
    }

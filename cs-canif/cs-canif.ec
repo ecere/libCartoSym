@@ -10,6 +10,9 @@ import "convertExpression"
 
 import "de9imRelations"
 
+import "evalExpression"
+import "evalStyle"
+
 static void showSyntax()
 {
    PrintLn(
@@ -25,7 +28,7 @@ static void showSyntax()
       "   .wkt (Well-Known Text), .wkb (Well-Known text Binary), .geojson (GeoJSON)\n"
       "\n"
       "Supported feature collection encodings:\n"
-      "   .geojson (GeoJSON), .wkbc (Well-Known text Binary Collection)\n"
+      "   .geojson (GeoJSON), .wkbc (Well-Known text Binary Collection including feature IDs)\n"
       "\n"
       "Supported expressions encodings:\n"
       "   .cql2 (CQL2-Text), .cql2json (CQL2-JSON -- currently only as input)\n"
@@ -36,9 +39,17 @@ static void showSyntax()
       "      Transcode cartographic symbology style sheet, geometry, feature collection or expression\n"
       "\n"
       "   de9im <geometry A file> <geometry B file>\n"
-      "      Evaluate Dimensionally Extended 9 Intersection Matrix and spatial relation of two geometries\n"
+      "      Evaluate Dimensionally Extended 9 Intersection Matrix and spatial relations of two geometries\n"
       "\n"
-//      "Options:\n"
+               // TODO:  also support coordinates instead of feature ID, also for styling gridded coverage
+      "   eval <style sheet or CQL2 expression> [<feature collection> [<feature ID> [<layer ID>]]]\n"
+      "      Evaluate symbolizer(s) for style or CQL2 expression, optionally considering features\n"
+      "\n"
+      "      Options:\n"
+      "        -sd <scale denominator>\n"
+      // "        -g <GNOSIS Global Grid zoom level>\n"
+      // "        -z <Web Mercator zoom level>\n"
+      "\n"
       );
 }
 
@@ -58,8 +69,9 @@ public class CSCanif : Application
       bool syntaxError = false;
       int cmdArg = 0;
       // Command arguments
-      const String inputFile = null, outputFile = null;
-      const String geomA = null, geomB = null;
+      const String inputFile = null, outputFile = null;  // For convert
+      const String geomA = null, geomB = null;           // For de9im
+      const String features = null, featureID = null, layerID = null;    // For eval (with inputFile as well)
       Map<String, FeatureDataType> typeMap = null;
 
       for(a = 1; !syntaxError && a < argc; a++)
@@ -99,6 +111,9 @@ public class CSCanif : Application
                      case de9im:
                         geomA = arg;
                         break;
+                     case eval:
+                        inputFile = arg;
+                        break;
                      default: syntaxError = true; break;
                   }
                   break;
@@ -111,6 +126,29 @@ public class CSCanif : Application
                         break;
                      case de9im:
                         geomB = arg;
+                        break;
+                     case eval:
+                        features = arg;
+                        break;
+                     default: syntaxError = true; break;
+                  }
+                  break;
+               case 3:
+                  // Third command argument
+                  switch(command)
+                  {
+                     case eval:
+                        featureID = arg;
+                        break;
+                     default: syntaxError = true; break;
+                  }
+                  break;
+               case 4:
+                  // Fourth command argument
+                  switch(command)
+                  {
+                     case eval:
+                        layerID = arg;
                         break;
                      default: syntaxError = true; break;
                   }
@@ -175,6 +213,41 @@ public class CSCanif : Application
                   bool result = false;
                   if(geomA && geomB)
                      result = de9imRelations(geomA, null, geomB, null);
+                  else
+                     showSyntax();
+
+                  if(!result)
+                     exitCode = 1;
+                  break;
+               }
+               case eval:
+               {
+                  bool result = false;
+                  if(inputFile)
+                  {
+                     char ext[MAX_EXTENSION];
+
+                     GetExtension(inputFile, ext);
+
+                     if(!strcmpi(ext, "csjson") || !strcmpi(ext, "cscss") ||
+                        !strcmpi(ext, "json") || !strcmpi(ext, "mbgl") ||
+                        !strcmpi(ext, "sld"))
+                     {
+                        double sd = 0;
+                        if(options)
+                        {
+                           const String sdArg = options["sd"];
+                           if(sdArg) sd = strtod(sdArg, null);
+                        }
+
+                        result = evaluateStyle(inputFile, null, features, null, featureID, layerID, sd);
+                     }
+                     else if(!strcmpi(ext, "cql2json") ||
+                             !strcmpi(ext, "cql2") || !strcmpi(ext, "cql2text"))
+                        result = evaluateExpression(inputFile, null, features, null, featureID, layerID);
+                     else
+                        PrintLn($"Unrecognized input extension");
+                  }
                   else
                      showSyntax();
 
