@@ -1153,6 +1153,7 @@ private:
             c == class(Array<Geometry>))
          {
             Geometry * geometry = new0 Geometry[1];
+            // REVIEW: subElementsOwned is not being set here...
             if(c == class(GeoPoint))
             {
                GeoPoint * p = (GeoPoint *)instData;

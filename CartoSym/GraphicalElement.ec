@@ -284,7 +284,7 @@ public:
    {
       // FIXME: This Quaternion storage is quite inefficient for 2D...
       set { /* FIXME transform.orientation.Yaw(value);*/ }
-      get { Euler euler; return 0; } // FIXME/REVIEW: euler.FromQuaternion(transform.orientation, yxz); return euler.yaw; }
+      get { /*Euler euler; */return 0; } // FIXME/REVIEW: euler.FromQuaternion(transform.orientation, yxz); return euler.yaw; }
    };
    property Quaternion orientation3D
    {
@@ -672,7 +672,7 @@ public:
    {
       // FIXME: This Quaternion storage is quite inefficient for 2D...
       set { /* FIXME: (*&transform).orientation.Yaw(value);*/ }
-      get { Euler euler; return 0; } // FIXME: euler.FromQuaternion((*&transform).orientation, yxz); return euler.yaw; }
+      get { /*Euler euler; */return 0; } // FIXME: euler.FromQuaternion((*&transform).orientation, yxz); return euler.yaw; }
    };
    property Quaternion orientation3D
    {

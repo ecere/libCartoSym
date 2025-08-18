@@ -7,6 +7,23 @@ public import IMPORT_STATIC "SFCollections"  // For TemporalOptions
 private:
 
 import "CQL2Expressions"
+                                                                // Use false for standard CQL2-Text/WKT
+public CQL2Expression cql2FromGeometry(const Geometry geometry, bool forComputation)
+{
+   CQL2Expression result;
+   CQL2ExpInstance instance { instData = (void *)geometry, instanceFlags = { resolved = true }, expType = class(Geometry) };
+   buildInstanceFromInstData(instance, null, null);
+   instance.instData = null;
+
+   if(forComputation)
+      result = instance;
+   else
+   {
+      result = normalizeCQL2(instance);
+      delete instance;
+   }
+   return result;
+}
 
 public CQL2Expression normalizeCQL2(CQL2Expression c)
 {

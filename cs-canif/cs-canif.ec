@@ -4,6 +4,7 @@ public import IMPORT_STATIC "CartoSym"
 private:
 
 import "convertStyle"
+import "convertGeometry"
 
 static void showSyntax()
 {
@@ -16,9 +17,12 @@ static void showSyntax()
       "Supported cartographic symbology encodings:\n"
       "   .cscss (CartoSym-CSS), .sld (SLD/SE), .json (Mapbox GL / Map Libre)\n"
       "\n"
+      "Supported geometry encodings:\n"
+      "   .wkt (Well-Known Text), .wkb (Well-Known text Binary)\n"
+      "\n"
       "Commands:\n"
       "   convert <input file> <output file>\n"
-      "      Transcode cartographic symbology style sheet from one encoding to another\n"
+      "      Transcode cartographic symbology style sheet, geometry, feature collections or expressions\n"
       "\n"
 //      "Options:\n"
       );
@@ -26,7 +30,7 @@ static void showSyntax()
 
 enum CSCanifCommand
 {
-   convert = 1
+   convert = 1, de9im, eval
 };
 
 public class CSCanif : Application
@@ -110,7 +114,30 @@ public class CSCanif : Application
                case convert:
                {
                   bool result = false;
-                  result = convertStyle(inputFile, null, outputFile, null, typeMap);
+                  if(inputFile && outputFile)
+                  {
+                     char ext[MAX_EXTENSION], outExt[MAX_EXTENSION];
+
+                     GetExtension(inputFile, ext);
+                     GetExtension(outputFile, outExt);
+
+                     if(!strcmpi(ext, "csjson") || !strcmpi(ext, "cscss") ||
+                        !strcmpi(ext, "json") || !strcmpi(ext, "mbgl") ||
+                        !strcmpi(ext, "sld"))
+                        result = convertStyle(inputFile, null, outputFile, null, typeMap);
+                     else if(!strcmpi(ext, "wkt") || !strcmpi(ext, "wkb") ||
+                        (!strcmpi(ext, "geojson") &&
+                           (!strcmpi(outExt, "wkbc") || !strcmpi(outExt, "geojson"))))
+                        result = convertGeometry(inputFile, null, outputFile, null);
+                     /*
+                     else if(!strcmpi(ext, "geojson") || !strcmpi(ext, "wkbc"))
+                        result = convertFeatureCollection(inputFile, null, outputFile, null);
+                     else if(!strcmpi(ext, "cql2") || !strcmpi(ext, "cql2json") || !strcmpi(ext, "cql2text"))
+                        result = convertCQL2Expression(inputFile, null, outputFile, null);
+                     */
+                  }
+                  else
+                     showSyntax();
 
                   if(!result)
                      exitCode = 1;

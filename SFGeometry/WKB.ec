@@ -254,6 +254,21 @@ public void readGeometryWKB(File f, Geometry geometry)
             }
             break;
          }
+         case geometryCollection:
+         {
+            Geometry * geometries;
+            uint32 nGeometries = 0, i;
+
+            f.Get(nGeometries);
+            geometry.geometryCollection = Array<Geometry> { size = nGeometries };
+            geometries = ((Array<Geometry>)geometry.geometryCollection).array;
+
+            geometry.type = geometryCollection;
+
+            for(i = 0; i < nGeometries; i++)
+               readGeometryWKB(f, geometries[i]);
+            break;
+         }
       }
    }
 }
@@ -310,16 +325,20 @@ public void writeGeometryWKB(File f, const Geometry geometry, const double * mea
       WKBGeometryType type =
          gt == point ? { point } : gt == multiPoint ? { multiPoint } :
          gt == lineString ? { lineString } : gt == multiLineString ? { multiLineString } :
-         gt == polygon ? { polygon } : gt == multiPolygon ? { multiPolygon } : 0;
+         gt == polygon ? { polygon } : gt == multiPolygon ? { multiPolygon } :
+         gt == geometryCollection ? { geometryCollection } : 0;
       uint multiCount = 0;
       int i;
 
       if(measures) type.m = true;
       if(depths)   type.z = true;
 
-      if(geometry.type == multiPoint || geometry.type == multiLineString || geometry.type == multiPolygon)
+      if(geometry.type == multiPoint ||
+         geometry.type == multiLineString ||
+         geometry.type == multiPolygon ||
+         geometry.type == geometryCollection)
       {
-         multiCount = geometry != null && geometry.multiPolygon ? geometry.multiPolygon.GetCount() : 0;
+         multiCount = geometry.multiPolygon ? geometry.multiPolygon.GetCount() : 0;
 
          f.Putc(0);        // Big endian
          f.Put(type);
@@ -350,6 +369,13 @@ public void writeGeometryWKB(File f, const Geometry geometry, const double * mea
             Array<Polygon> g = (Array<Polygon>)geometry.multiPolygon;
             for(i = 0; i < g.count; i++)
                writePolygonWKB(f, g[i]);
+            break;
+         }
+         case geometryCollection:
+         {
+            Array<Geometry> g = (Array<Geometry>)geometry.geometryCollection;
+            for(i = 0; i < g.count; i++)
+               writeGeometryWKB(f, g[i], null, null);
             break;
          }
       }

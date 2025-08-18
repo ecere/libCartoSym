@@ -61,7 +61,7 @@ public:
             {
                geometry.multiPolygon = polygons;
                geometry.type = multiPolygon;
-               geometry.subElementsNotFreed = true;
+               geometry.subElementsOwned = true;
                if(steal) *&pf->geometry = null; // Stealing Array
             }
             else if(polygons && polygons.count == 1)
@@ -80,7 +80,7 @@ public:
             {
                geometry.multiLineString = lines;
                geometry.type = multiLineString;
-               geometry.subElementsNotFreed = true;
+               geometry.subElementsOwned = true;
                if(steal) *&lf->geometry = null; // Stealing array
             }
             else if(lines && lines.count == 1)
@@ -99,7 +99,7 @@ public:
             {
                geometry.multiPoint = points;
                geometry.type = multiPoint;
-               geometry.subElementsNotFreed = true;
+               geometry.subElementsOwned = true;
                if(steal) *&pf->geometry = null; // Stealing array
             }
             else if(points && points.count == 1)

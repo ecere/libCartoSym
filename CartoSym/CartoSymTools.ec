@@ -83,14 +83,14 @@ public bool checkScale(CQL2Expression e)
 public bool getScale(CQL2Expression e, double * minScale, double * maxScale)
 {
    bool isScale = false;
-   String s = e.toString(0);
+   // String s = e.toString(0);
 
    if(e._class == class(CQL2ExpOperation))
    {
       CQL2ExpOperation expOp = (CQL2ExpOperation)e;
       if(expOp.op != in)
       {
-         CQL2Expression expId = expOp.exp1 && expOp.exp1._class == class(CQL2ExpIdentifier) ? expOp.exp1 : expOp.exp2 && expOp.exp2._class == class(CQL2ExpIdentifier) ? expOp.exp2 : null;
+         // CQL2Expression expId = expOp.exp1 && expOp.exp1._class == class(CQL2ExpIdentifier) ? expOp.exp1 : expOp.exp2 && expOp.exp2._class == class(CQL2ExpIdentifier) ? expOp.exp2 : null;
          CQL2Expression member = expOp.exp1 && expOp.exp1._class == class(CQL2ExpMember) ? expOp.exp1 : expOp.exp2 && expOp.exp2._class == class(CQL2ExpMember) ? expOp.exp2 : null;
          CQL2Expression e2 = (expOp.exp1 && (expOp.exp1._class == class(CQL2ExpIdentifier) || expOp.exp1._class == class(CQL2ExpMember))) ?
             expOp.exp2 : (expOp.exp2 && (expOp.exp2._class == class(CQL2ExpIdentifier) || expOp.exp2._class == class(CQL2ExpMember))) ? expOp.exp1 : null;

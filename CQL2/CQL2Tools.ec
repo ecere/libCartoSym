@@ -152,3 +152,185 @@ void setMultiLineMemberInitList(CQL2Expression expArray, CQL2ExpArray lineArray)
       lineArray.elements.Add(CQL2ExpInstance { instance = lineInst });
    }
 }
+
+void buildInstanceFromInstData(CQL2Expression e, Geometry * collectionGeom, CQL2ExpArray collectionExpArray)
+{
+   if(e && e._class == class(CQL2ExpInstance))
+   {
+      CQL2ExpInstance expInst = (CQL2ExpInstance)e;
+      Class expType = expInst.expType;
+      if(expType == class(Geometry))
+      {
+         Geometry * geom = collectionGeom ? collectionGeom : (Geometry *)expInst.instData;
+         CQL2MemberInit minit = null;
+         CQL2Instantiation inst { };
+         CQL2MemberInitList subList {};
+         GeometryType gt = geom->type;
+         int i;
+         switch(gt)
+         {
+            case point:
+            {
+               GeoPoint point = geom->point;
+               CQL2Expression pointExp = tupleOrPointToExpInstance(null, point);
+               expInst.instance = ((CQL2ExpInstance)pointExp).instance.copy();
+               delete pointExp; // we want to keep the instData in expInst
+               expInst.instance._class = CQL2SpecName { name = CopyString("Point")};
+               break;
+            }
+            case lineString:
+            {
+               LineString line = geom->lineString;
+               CQL2ExpArray linePointArray = buildExpArrayFromPoints((Array<GeoPoint>)line.points, false);
+               minit = { initializer = linePointArray };
+               inst._class = CQL2SpecName { name = CopyString("LineString") };
+               break;
+            }
+            case polygon:
+            {
+               Polygon polygon = geom->polygon;
+               CQL2ExpArray innerArray {};
+               Array<PolygonContour> contours = (Array<PolygonContour>)polygon.getContours();
+
+               inst._class = CQL2SpecName { name = CopyString("Polygon")};
+               for(i = 0; i < contours.count; i++)
+               {
+                  CQL2ExpArray contourPointArray = buildExpArrayFromPoints((Array<GeoPoint>)contours[i].points, true);
+                  setPolygonMemberInitList(contourPointArray, subList, innerArray, i);
+                  delete contourPointArray; // function copies
+               }
+               if(innerArray.elements && innerArray.elements.GetCount())
+               {
+                  minit = { initializer = innerArray };
+                  subList.Add(minit);
+               }
+               else
+                  delete innerArray;
+               break;
+            }
+            case multiPolygon:
+            {
+               Array<Polygon> polygons = (Array<Polygon>)geom->multiPolygon;
+               CQL2ExpArray polygonsArray {};
+               int j;
+               inst._class = CQL2SpecName { name = CopyString("MultiPolygon")};
+               for(i = 0; i < polygons.count; i++)
+               {
+                  Array<PolygonContour> contours = (Array<PolygonContour>)polygons[i].getContours();
+                  CQL2ExpArray polyArrayExp { elements = {}};
+                  for(j = 0; j < contours.count; j++)
+                  {
+                     CQL2ExpArray contourPointArray  = buildExpArrayFromPoints((Array<GeoPoint>)contours[j].points, true);
+                     polyArrayExp.elements.Add(contourPointArray);
+                  }
+                  setMultiPolygonMemberInitList(polyArrayExp, polygonsArray);
+               }
+               minit = { initializer = polygonsArray };
+               break;
+            }
+            case multiLineString:
+            {
+               Array<LineString> lines = (Array<LineString>)geom->multiLineString;
+               CQL2ExpArray lineArray { elements = {} };
+               inst._class = CQL2SpecName { name = CopyString("MultiLineString") };
+               for(i = 0; i < lines.count; i++)
+               {
+                  CQL2ExpArray linePointArray = buildExpArrayFromPoints((Array<GeoPoint>)lines[i].points, false);
+                  if(linePointArray)
+                     setMultiLineMemberInitList(linePointArray, lineArray);
+               }
+               minit = { initializer = lineArray };
+               break;
+            }
+            case multiPoint:
+            {
+               Array<GeoPoint> points = (Array<GeoPoint>)geom->multiPoint;
+               CQL2ExpArray pointExpArray = buildExpArrayFromPoints(points, false);
+               inst._class = CQL2SpecName { name = CopyString("MultiPoint") };
+               minit = { initializer = pointExpArray };
+               break;
+            }
+            case bbox:
+            {
+               GeoExtent extent = geom->bbox;
+               CQL2Expression ptExp1 = tupleOrPointToExpInstance(null, extent.ll);
+               CQL2Expression ptExp2 = tupleOrPointToExpInstance(null, extent.ur);
+               inst._class = CQL2SpecName { name = CopyString("GeoExtent")};
+               subList.setMember(class(GeoPoint), "ll", 0, true, ptExp1);
+               subList.setMember(class(GeoPoint), "ur", 0, true, ptExp2);
+               break;
+            }
+            case geometryCollection:
+            {
+               Array<Geometry> geometryColl = (Array<Geometry>)geom->geometryCollection;
+               if(collectionExpArray)
+                  minit = { initializer = collectionExpArray };
+               else
+               {
+                  CQL2ExpArray expArray { elements = {} };
+                  for(i = 0; i < geometryColl.count; i++)
+                  {
+                     CQL2ExpInstance subExpInst { instanceFlags = { resolved = true }, expType = class(Geometry) };
+                     buildInstanceFromInstData(subExpInst, &geometryColl[i], null);
+                     expArray.elements.Add(subExpInst);
+                  }
+                  minit = { initializer = expArray };
+               }
+               inst._class = CQL2SpecName { name = CopyString("GeometryCollection") };
+            }
+            break;
+         }
+         if(gt != point)
+         {
+            if(minit && gt != polygon)
+               subList.Add(minit);
+            inst.members = { [ subList ] };
+            expInst.instance = inst;
+         }
+         else
+         {
+            delete inst; delete subList;
+         }
+      }
+   }
+}
+
+CQL2Expression tupleOrPointToExpInstance(CQL2Tuple tuple, GeoPoint point)
+{
+   CQL2Expression e = null;
+   if(tuple || point != null)
+   {
+      CQL2MemberInitList memberInitList { };
+      CQL2Instantiation instantiation { };
+      int i, count = tuple ? tuple.list.count : 2;
+      for(i = 0; i < count ; i++)
+      {
+         CQL2Expression tExp = tuple ? convertToInternalCQL2(tuple.list[i]) : CQL2ExpConstant { constant = { type = { real }, r = i == 0 ? point.lon : point.lat } };
+         CQL2MemberInit minit { initializer = tExp };
+         memberInitList.Add(minit);
+      }
+      instantiation.members = { [ memberInitList ] };
+      e = CQL2ExpInstance { instance = instantiation };
+   }
+   return e;
+}
+
+CQL2ExpArray buildExpArrayFromPoints(Array<GeoPoint> points, bool addFirstPoint)
+{
+   CQL2ExpArray expArray = null;
+   if(points && points.count)
+   {
+      expArray = { elements = {} };
+      for(p : points)
+      {
+         CQL2Expression pointExp = tupleOrPointToExpInstance(null, p);
+         expArray.elements.Add(pointExp);
+      }
+      if(addFirstPoint)
+      {
+         CQL2Expression pointExp = tupleOrPointToExpInstance(null, points[0]);
+         expArray.elements.Add(pointExp);
+      }
+   }
+   return expArray;
+}

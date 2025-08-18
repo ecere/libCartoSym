@@ -184,6 +184,26 @@ private:
       delete measures;
    }
 
+   void OnCopy(const LineString src)
+   {
+      OnFree();
+      if(src._points)
+      {
+         uint count = src._points.count;
+         _points = { src._points };
+         if(src.depths)
+         {
+            depths = new Meters[count];
+            memcpy(depths, src.depths, sizeof(Meters) * count);
+         }
+         if(src.measures)
+         {
+            measures = new double[count];
+            memcpy(measures, src.measures, sizeof(double) * count);
+         }
+      }
+   }
+
    public void calculateExtent(GeoExtent extent)
    {
       int i, count = _points.count;
@@ -213,15 +233,6 @@ public class PolygonContour : struct
 {
    Array<GeoPoint> _points { };
    Array<StartEndPair> hiddenSegments; // Edges between each 'start' and 'end' indices pair should not be drawn
-   public Meters * depths;
-   public double * measures;
-   GeoExtent extent;
-
-   struct
-   {
-      bool isClockwise:1;
-      bool isInner:1;
-   };
 
 public:
    property Container<PolygonContour>
@@ -251,6 +262,19 @@ public:
       get { return _points; }
    }
 
+   Meters * depths;
+   double * measures;
+
+private:
+   GeoExtent extent;
+
+   struct
+   {
+      bool isClockwise:1;
+      bool isInner:1;
+   };
+
+public:
    property Container<StartEndPair> hidden
    {
       set
@@ -699,7 +723,7 @@ public struct Geometry
    GeometryType type;
    double epsilon;   // FIXME: There seems to be an eC issue with having this double epsilon _after_ the union
    CRS crs;
-   bool subElementsNotFreed;
+   bool subElementsOwned;  // REVIEW: Avoid the need for this flag?
    union
    {
       GeoPoint point;
@@ -717,7 +741,7 @@ public struct Geometry
       type = src.type;
       crs = src.crs;
       epsilon = src.epsilon;
-      subElementsNotFreed = src.subElementsNotFreed;
+      subElementsOwned = src.subElementsOwned;
       switch(type)
       {
          case GeometryType::bbox:               bbox.OnCopy(src.bbox); break;
@@ -725,14 +749,13 @@ public struct Geometry
          case GeometryType::lineString:         lineString.OnCopy(src.lineString); break;
          case GeometryType::polygon:            polygon.OnCopy(src.polygon); break;
          case GeometryType::multiPoint:
-            if(subElementsNotFreed)
+            if(subElementsOwned)
                multiPoint.OnCopy(src.multiPoint);
             else
                multiPoint = src.multiPoint;
-            delete multiPoint;
             break;
          case GeometryType::multiPolygon:
-            if(subElementsNotFreed)
+            if(subElementsOwned)
             {
                if(src.multiPolygon)
                {
@@ -751,7 +774,7 @@ public struct Geometry
                multiPolygon = src.multiPolygon;
             break;
          case GeometryType::multiLineString:
-            if(subElementsNotFreed)
+            if(subElementsOwned)
             {
                if(src.multiLineString)
                {
@@ -770,7 +793,7 @@ public struct Geometry
                multiLineString = src.multiLineString;
             break;
          case GeometryType::geometryCollection:
-            if(subElementsNotFreed)
+            if(subElementsOwned)
             {
                if(src.geometryCollection)
                {
@@ -799,25 +822,25 @@ public struct Geometry
          case GeometryType::polygon:            polygon.OnFree(); break;
          case GeometryType::multiPoint:
          {
-            if(subElementsNotFreed)
+            if(subElementsOwned)
                multiPoint.Free();
             delete multiPoint; break;
          }
          case GeometryType::multiPolygon:
          {
-            if(subElementsNotFreed)
+            if(subElementsOwned)
                multiPolygon.Free();
             delete multiPolygon; break;
          }
          case GeometryType::multiLineString:
          {
-            if(subElementsNotFreed)
+            if(subElementsOwned)
                multiLineString.Free();
             delete multiLineString; break;
          }
          case GeometryType::geometryCollection:
          {
-            if(subElementsNotFreed)
+            if(subElementsOwned)
                geometryCollection.Free();
             delete geometryCollection; break;
          }
