@@ -1261,7 +1261,8 @@ public bool writeFilteredGeoJSON(FeatureCollection fc, const String baseHREF, Fi
 }
 
 // TOCHECK: Currently public for use in routing engine...
-public /*static */void writeGeoJSONCoordinates(File f, Container<GeoPoint> points, Meters * depths, bool repeatFirst, CRS crsID, CRS srcCRS, bool pointsArray)
+public /*static */void writeGeoJSONCoordinates(File f, int nPoints, const GeoPoint * points,
+   const Meters * depths, bool repeatFirst, CRS crsID, CRS srcCRS, bool pointsArray)
 {
    bool previous = false;
    MinimalProjection pj = crsID == srcCRS ? null : MinimalProjection::fromCRS(crsID);
@@ -1272,12 +1273,13 @@ public /*static */void writeGeoJSONCoordinates(File f, Container<GeoPoint> point
    bool latFirst = crsID != srcCRS && (crsID == { epsg, 4326 } || crsID == { epsg, 4979 });
 
    if(pointsArray) f.Puts("[ ");
-   for(p : points)
+   for(i = 0; i < nPoints; i++)
    {
+      const GeoPoint * p = &points[i];
       if(previous) f.Puts(", ");
       if(pj)
       {
-         GeoPoint pnt { p.lat, p.lon };
+         GeoPoint pnt { p->lat, p->lon };
          Pointd pv;
          pj.geoToCartesian(pnt, pv);
          f.Puts("[");
@@ -1288,16 +1290,16 @@ public /*static */void writeGeoJSONCoordinates(File f, Container<GeoPoint> point
       else if(latFirst)
       {
          f.Puts("[");
-         printDoubleDecFile(f, (double)p.lat, prec);
+         printDoubleDecFile(f, (double)p->lat, prec);
          f.Puts(", ");
-         printDoubleDecFile(f, (double)p.lon, prec);
+         printDoubleDecFile(f, (double)p->lon, prec);
       }
       else
       {
          f.Puts("[");
-         printDoubleDecFile(f, (double)p.lon, prec);
+         printDoubleDecFile(f, (double)p->lon, prec);
          f.Puts(", ");
-         printDoubleDecFile(f, (double)p.lat, prec);
+         printDoubleDecFile(f, (double)p->lat, prec);
       }
       if(depths)
       {
@@ -1306,15 +1308,14 @@ public /*static */void writeGeoJSONCoordinates(File f, Container<GeoPoint> point
       }
       f.Puts("]");
       previous = true;
-      i++;
    }
-   if(repeatFirst && points.GetCount() > 0)
+   if(repeatFirst && nPoints > 0)
    {
-      GeoPoint p = points[0];
+      const GeoPoint * p = &points[0];
       f.Puts(", ");
       if(pj)
       {
-         GeoPoint pnt { p.lat, p.lon };
+         GeoPoint pnt { p->lat, p->lon };
          Pointd pv;
          pj.geoToCartesian(pnt, pv);
 
@@ -1326,16 +1327,16 @@ public /*static */void writeGeoJSONCoordinates(File f, Container<GeoPoint> point
       else if(latFirst)
       {
          f.Puts("[");
-         printDoubleDecFile(f, (double)p.lat, prec);
+         printDoubleDecFile(f, (double)p->lat, prec);
          f.Puts(", ");
-         printDoubleDecFile(f, (double)p.lon, prec);
+         printDoubleDecFile(f, (double)p->lon, prec);
       }
       else
       {
          f.Puts("[");
-         printDoubleDecFile(f, (double)p.lon, prec);
+         printDoubleDecFile(f, (double)p->lon, prec);
          f.Puts(", ");
-         printDoubleDecFile(f, (double)p.lat, prec);
+         printDoubleDecFile(f, (double)p->lat, prec);
       }
       if(depths)
       {
@@ -1411,9 +1412,19 @@ bool writeGeoJSONPolygonFeatures(FeatureCollection<PolygonFeature> features, Fil
             }
             else
             {
-               writeGeoJSONPolygons(geometry, f, pf, isFG ? { ogc, 84 } : crsID, "geometry", srcCRS);
+               f.Print("      \"geometry\" : ");
+               writeGeoJSONPolygons(geometry && geometry.count > 1,
+                  geometry ? geometry.count : 0, geometry ? geometry.array : null,
+                  f, isFG ? { ogc, 84 } : crsID, srcCRS);
+               f.PrintLn(",");
                if(crsID != { ogc, 84 } && isFG) // write 'null' for place? -- is geometry required in GeoJSON schema?
-                  writeGeoJSONPolygons(geometry, f, pf, crsID, "place", srcCRS);
+               {
+                  f.Print("      \"place\" : ");
+                  writeGeoJSONPolygons(geometry && geometry.count > 1,
+                     geometry ? geometry.count : 0, geometry ? geometry.array : null,
+                     f, crsID, srcCRS);
+                  f.PrintLn(",");
+               }
                else if(isFG)
                   f.PrintLn("      \"place\" : null,");
             }
@@ -1606,9 +1617,19 @@ bool writeGeoJSONLineFeatures(FeatureCollection<LineFeature> features, File f, H
          }
          else
          {
-            writeGeoJSONLines(geometry, f, lf, isFG ? { ogc, 84 } : crsID, "geometry", srcCRS);
+            f.Print("      \"geometry\" : ");
+            writeGeoJSONLines(geometry && geometry.count > 1,
+               geometry ? geometry.count : 0, geometry ? geometry.array : null,
+               f, isFG ? { ogc, 84 } : crsID, srcCRS);
+            f.PrintLn(",");
             if(crsID != { ogc, 84 } && isFG) // write 'null' for place?
-               writeGeoJSONLines(geometry, f, lf, crsID, "place", srcCRS);
+            {
+               f.Print("      \"place\" : ");
+               writeGeoJSONLines(geometry && geometry.count > 1,
+                  geometry ? geometry.count : 0, geometry ? geometry.array : null,
+                  f, crsID, srcCRS);
+               f.PrintLn(",");
+            }
             else if(isFG)
                f.PrintLn("      \"place\" : null,");
          }
@@ -1692,9 +1713,19 @@ bool writeGeoJSONPointFeatures(FeatureCollection<PointFeature> fc, File f, HashM
          }
          else
          {
-            writeGeoJSONPoints(geometry, f, pf, p3df, s1, isFG ? { ogc, 84 } : crsID, "geometry", srcCRS);
+            f.Print("      \"geometry\" : ");
+            writeGeoJSONPoints(geometry && geometry.count > 1,
+               geometry ? geometry.count : 0, geometry ? geometry.array : null,
+               f, p3df ? p3df->depths : null, isFG ? { ogc, 84 } : crsID, srcCRS);
+            f.PrintLn(",");
             if(crsID != { ogc, 84 } && isFG) // write 'null' for place?
-               writeGeoJSONPoints(geometry, f, pf, p3df, s1, crsID, "place", srcCRS);
+            {
+               f.Print("      \"place\" : ");
+               writeGeoJSONPoints(geometry && geometry.count > 1,
+                  geometry ? geometry.count : 0, geometry ? geometry.array : null,
+                  f, p3df ? p3df->depths : null, crsID, srcCRS);
+               f.PrintLn(",");
+            }
             else if(isFG)
                f.PrintLn("      \"place\" : null,");
          }
@@ -1761,127 +1792,156 @@ bool writeGeoJSONPointFeatures(FeatureCollection<PointFeature> fc, File f, HashM
    return result;
 }
 
-static void writeGeoJSONPoints(Array<GeoPoint> geometry, File f, PointFeature * pf, Point3DFeature * p3df,
-   char * s1, CRS crsID, const String geomProp, CRS srcCRS)
+static void writeGeoJSONPoints(bool multiPoint, int nPoints, const GeoPoint * points,
+   File f, const Meters * depths, CRS crsID, CRS srcCRS)
 {
-   f.Print("      \"", geomProp, "\" : ");
-   if(geometry && geometry.count)
+   if(points && nPoints)
    {
-      bool multiPoint = geometry.count > 1;
       f.PrintLn("{");
-      f.PrintLn("         \"type\" : \"", multiPoint ? "MultiPoint" : "Point", "\",");
+      f.PrintLn("         \"type\" : \"", multiPoint || nPoints > 1 ? "MultiPoint" : "Point", "\",");
       f.Print  ("         \"coordinates\" : ");
-      writeGeoJSONCoordinates(f, pf->geometry, p3df ? p3df->depths : null, false, crsID, srcCRS, multiPoint);
-      f.PrintLn("\n      },");
+      writeGeoJSONCoordinates(f, nPoints, points, depths, false, crsID, srcCRS, multiPoint);
+      f.Print("\n      }");
    }
    else
-      f.PrintLn("null,");
+      f.Print("null");
 }
 
-static void writeGeoJSONLines(Array<LineString> geometry, File f, LineFeature lf, CRS crsID, const String geomProp, CRS srcCRS )
+static void writeGeoJSONLines(bool multi, int nLineStrings, const LineString * lineStrings,
+   File f, CRS crsID, CRS srcCRS )
 {
-   f.PrintLn("      \"", geomProp, "\" : {");
-
-   if(geometry && geometry.count > 1)
+   if(lineStrings && nLineStrings)
    {
-      bool previous = false;
-      f.PrintLn("         \"type\" : \"MultiLineString\",");
-      f.PrintLn("         \"coordinates\" : [");
-      for(lineString : lf.geometry)
+      f.PrintLn("      {");
+      if(multi || nLineStrings > 1)
       {
-         LineString l = lineString;
-
-         if(previous)
-            f.PrintLn(",");
-         f.Print("               ");
-         writeGeoJSONCoordinates(f, l.points, l.depths, false, crsID, srcCRS, true);
-         previous = true;
-      }
-      f.PrintLn("");
-      f.PrintLn("         ]");
-   }
-   else if(geometry && geometry.count)
-   {
-      LineString l = geometry[0];
-
-      f.PrintLn("         \"type\" : \"LineString\",");
-      f.PrintLn("         \"coordinates\" :");
-      f.Print("            ");
-      writeGeoJSONCoordinates(f, l.points, l.depths, false, crsID, srcCRS, true);
-      f.PrintLn("");
-   }
-   f.PrintLn("      },");
-}
-
-static void writeGeoJSONPolygons(Array<Polygon> geometry, File f, PolygonFeature pf, CRS crsID, const String geomProp, CRS srcCRS)
-{
-   f.PrintLn("      \"", geomProp, "\" : {");
-   if(geometry && geometry.count > 1)
-   {
-      bool previous = false;
-      f.PrintLn("         \"type\" : \"MultiPolygon\",");
-      f.PrintLn("         \"coordinates\" : [");
-      for(polygon : pf.geometry)
-      {
-         Polygon p = polygon;
-         PolygonContour outer = p.outer;
-         if(outer)
+         bool previous = false;
+         int i;
+         f.PrintLn("         \"type\" : \"MultiLineString\",");
+         f.PrintLn("         \"coordinates\" : [");
+         for(i = 0; i < nLineStrings; i++)
          {
-            Array<PolygonContour> inner = (Array<PolygonContour>)p.inner;
+            const LineString * l = &lineStrings[i];
+            Array<GeoPoint> points = (Array<GeoPoint>)l->points;
 
             if(previous)
-               f.PrintLn(", [");
-            else
-               f.PrintLn("            [");
+               f.PrintLn(",");
             f.Print("               ");
-            writeGeoJSONCoordinates(f, outer.points, outer.depths, true, crsID, srcCRS, true);
+            writeGeoJSONCoordinates(f, points ? points.count : 0,
+               points ? points.array : null, l->depths, false, crsID, srcCRS, true);
+            previous = true;
+         }
+         f.PrintLn("");
+         f.PrintLn("         ]");
+      }
+      else
+      {
+         const LineString * l = lineStrings;
+         Array<GeoPoint> points = (Array<GeoPoint>)l->points;
+
+         f.PrintLn("         \"type\" : \"LineString\",");
+         f.PrintLn("         \"coordinates\" :");
+         f.Print("            ");
+         writeGeoJSONCoordinates(f, points ? points.count : 0,
+            points ? points.array : null, l->depths, false, crsID, srcCRS, true);
+         f.PrintLn("");
+      }
+      f.Print("      }");
+   }
+   else
+      f.Print("null");
+}
+
+static void writeGeoJSONPolygons(bool multi, int nPolygons, const Polygon * polygons,
+   File f, CRS crsID, CRS srcCRS)
+{
+   if(polygons && nPolygons)
+   {
+      f.PrintLn("      {");
+      if(multi || nPolygons > 1)
+      {
+         bool previous = false;
+         int p;
+
+         f.PrintLn("         \"type\" : \"MultiPolygon\",");
+         f.PrintLn("         \"coordinates\" : [");
+         for(p = 0; p < nPolygons; p++)
+         {
+            const Polygon * polygon = &polygons[p];
+            PolygonContour outer = polygon->outer;
+            if(outer)
+            {
+               Array<GeoPoint> points = (Array<GeoPoint>)outer.points;
+               Array<PolygonContour> inner = (Array<PolygonContour>)polygon->inner;
+
+               if(previous)
+                  f.PrintLn(", [");
+               else
+                  f.PrintLn("            [");
+               f.Print("               ");
+               writeGeoJSONCoordinates(f, points ? points.count : 0, points ? points.array : null,
+                  outer.depths, true, crsID, srcCRS, true);
+               if(inner)
+               {
+                  for(i : inner)
+                  {
+                     points = (Array<GeoPoint>)i.points;
+                     f.PrintLn(",");
+                     f.Print("               ");
+                     writeGeoJSONCoordinates(f, points ? points.count : 0, points ? points.array : null,
+                        i.depths, true, crsID, srcCRS, true);
+                  }
+
+                  delete inner; // It's a bit clunky, but the Polygon::inner property
+                                // returnn a new object that must be deleted
+               }
+               f.PrintLn("");
+               f.Print("            ]");
+               previous = true;
+            }
+         }
+         f.PrintLn("");
+         f.PrintLn("         ]");
+      }
+      else
+      {
+         const Polygon * polygon = &polygons[0];
+         PolygonContour outer = polygon->outer;
+
+         f.PrintLn("         \"type\" : \"Polygon\",");
+         f.PrintLn("         \"coordinates\" : [");
+         f.Print("            ");
+         if(outer)
+         {
+            Array<GeoPoint> points = (Array<GeoPoint>)outer.points;
+            Array<PolygonContour> inner = (Array<PolygonContour>)polygon->inner;
+
+            writeGeoJSONCoordinates(f, points ? points.count : 0, points ? points.array : null,
+               outer.depths, true, crsID, srcCRS, true);
+
             if(inner)
             {
                for(i : inner)
                {
+                  Array<GeoPoint> points = (Array<GeoPoint>)i.points;
+
                   f.PrintLn(",");
-                  f.Print("               ");
-                  writeGeoJSONCoordinates(f, i.points, i.depths, true, crsID, srcCRS, true);
+                  f.Print("            ");
+                  writeGeoJSONCoordinates(f, points ? points.count : 0, points ? points.array : null,
+                     i.depths, true, crsID, srcCRS, true);
                }
 
                delete inner; // It's a bit clunky, but the Polygon::inner property
                              // returnn a new object that must be deleted
             }
-            f.PrintLn("");
-            f.Print("            ]");
-            previous = true;
          }
+         f.PrintLn("");
+         f.PrintLn("         ]");
       }
-      f.PrintLn("");
-      f.PrintLn("         ]");
+      f.Print("      }");
    }
-   else if(geometry && geometry.count)
-   {
-      Polygon p = geometry[0];
-      PolygonContour outer = p.outer;
-      Array<PolygonContour> inner = (Array<PolygonContour>)p.inner;
-
-      f.PrintLn("         \"type\" : \"Polygon\",");
-      f.PrintLn("         \"coordinates\" : [");
-      f.Print("            ");
-      if(outer)
-         writeGeoJSONCoordinates(f, outer.points, outer.depths, true, crsID, srcCRS, true);
-      if(inner)
-      {
-         for(i : inner)
-         {
-            f.PrintLn(",");
-            f.Print("            ");
-            writeGeoJSONCoordinates(f, i.points, i.depths, true, crsID, srcCRS, true);
-         }
-
-         delete inner; // It's a bit clunky, but the Polygon::inner property
-                       // returnn a new object that must be deleted
-      }
-      f.PrintLn("");
-      f.PrintLn("         ]");
-   }
-   f.PrintLn("      },");
+   else
+      f.Print("null");
 }
 
 bool printDateTimeParameter(char dtParam[1024], const TimeIntervalSince1970 dateTime)
@@ -2216,4 +2276,80 @@ public void generatePointFromCoordinates(GeoPoint pt, Array<double> point, int p
       *is3D = true;
       depths[fIndex] = point[2];
    }
+}
+
+static void writeGeoJSONGeometryCollection(int nGeometries, const Geometry * geometries,
+   File f, CRS crsID, CRS srcCRS)
+{
+   if(geometries && nGeometries)
+   {
+      bool previous = false;
+      int i;
+
+      f.PrintLn("      {");
+      f.PrintLn("         \"type\" : \"GeometryCollection\",");
+      f.PrintLn("         \"geometries\" : [");
+      for(i = 0; i < nGeometries; i++)
+      {
+         if(previous)
+            f.PrintLn(",");
+         writeGeoJSONGeometry(f, geometries[i], crsID, srcCRS);
+         previous = true;
+      }
+      f.PrintLn("");
+      f.PrintLn("         ]");
+      f.Print("      }");
+   }
+   else
+      f.Print("null");
+}
+
+public bool writeGeoJSONGeometry(File f, const Geometry geometry, CRS crsID, CRS srcCRS)
+{
+   bool result = false;
+
+   switch(geometry.type)
+   {
+      case point:
+         writeGeoJSONPoints(false, 1, &geometry.point, f, null, crsID, srcCRS);
+         result = true;
+         break;
+      case multiPoint:
+      {
+         Array<GeoPoint> mp = (Array<GeoPoint>)geometry.multiPoint;
+         writeGeoJSONPoints(true, mp ? mp.count : 0, mp ? mp.array : null, f, null, crsID, srcCRS);
+         result = true;
+         break;
+      }
+      case lineString:
+         writeGeoJSONLines(false, 1, &geometry.lineString, f, crsID, srcCRS);
+         result = true;
+         break;
+      case multiLineString:
+      {
+         Array<LineString> ml = (Array<LineString>)geometry.multiLineString;
+         writeGeoJSONLines(true, ml ? ml.count : 0, ml ? ml.array : null, f, crsID, srcCRS);
+         result = true;
+         break;
+      }
+      case polygon:
+         writeGeoJSONPolygons(false, 1, &geometry.polygon, f, crsID, srcCRS);
+         result = true;
+         break;
+      case multiPolygon:
+      {
+         Array<Polygon> mp = (Array<Polygon>)geometry.multiPolygon;
+         writeGeoJSONPolygons(true, mp ? mp.count : 0, mp ? mp.array : null, f, crsID, srcCRS);
+         result = true;
+         break;
+      }
+      case geometryCollection:
+      {
+         Array<Geometry> gc = (Array<Geometry>)geometry.geometryCollection;
+         writeGeoJSONGeometryCollection(gc ? gc.count : 0, gc ? gc.array : 0, f, crsID, srcCRS);
+         result = true;
+         break;
+      }
+   }
+   return result;
 }

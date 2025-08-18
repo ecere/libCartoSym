@@ -127,7 +127,7 @@ public class CSCanif : Application
                         result = convertStyle(inputFile, null, outputFile, null, typeMap);
                      else if(!strcmpi(ext, "wkt") || !strcmpi(ext, "wkb") ||
                         (!strcmpi(ext, "geojson") &&
-                           (!strcmpi(outExt, "wkbc") || !strcmpi(outExt, "geojson"))))
+                           (strcmpi(outExt, "wkbc") && strcmpi(outExt, "geojson"))))
                         result = convertGeometry(inputFile, null, outputFile, null);
                      /*
                      else if(!strcmpi(ext, "geojson") || !strcmpi(ext, "wkbc"))
@@ -135,6 +135,8 @@ public class CSCanif : Application
                      else if(!strcmpi(ext, "cql2") || !strcmpi(ext, "cql2json") || !strcmpi(ext, "cql2text"))
                         result = convertCQL2Expression(inputFile, null, outputFile, null);
                      */
+                     else
+                        PrintLn($"Unrecognized input extension");
                   }
                   else
                      showSyntax();

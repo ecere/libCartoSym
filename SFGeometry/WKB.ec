@@ -130,7 +130,7 @@ static bool readPolygonWKB(File f, Polygon poly)
          }
 
          // TODO: Verify clockwiseness? (Tricky in 3D for a single polygon!...)
-         contours[i] = PolygonContour { points = points, depths = (Meters *)depths, measures = measures, isInner = i > 1, isClockwise = i > 1 };
+         contours[i] = PolygonContour { points = points, depths = (Meters *)depths, measures = measures, isInner = i >= 1, isClockwise = i >= 1 };
       }
    }
 
