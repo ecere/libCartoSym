@@ -152,6 +152,64 @@ public struct DE9IM
       }
       return result;
    }
+
+   bool disjoint()
+   {
+      return match("FF*FF****");
+   }
+
+   bool equals()
+   {
+      return match("T*F**FFF*");
+   }
+
+   bool contains()
+   {
+      return match("T*****FF*");
+   }
+
+   bool within()
+   {
+      return match("T*F**F***");
+   }
+
+   bool touches()
+   {
+      return match("FT*******") || match("F**T*****") || match("F***T****");
+   }
+
+   bool covers()
+   {
+      return match("T*****FF*") || match("*T****FF*") || match("***T**FF*") || match("****T*FF*");
+   }
+
+   bool crosses(int dimA, int dimB)
+   {
+      bool result = false;
+      if(dimA != dimB || dimA == 1 || dimB == 1) // different dimensions
+         result = match(dimA < dimB ? "T*T******" : dimA > dimB ? "T*****T**" : "0********");
+      return result;
+   }
+
+   bool overlaps(int dimA, int dimB)
+   {
+      bool result = false;
+      if(dimA == dimB)
+         result = match(dimA == 1 ? "1*T***T**" : "T*T***T**");
+      return result;
+   }
+
+   bool intersects()
+   {
+      return !disjoint();
+   }
+
+   bool coveredBy()
+   {
+      DE9IM flipped;
+      flipped.flip(this);
+      return flipped.covers();
+   }
 };
 
 public enum InsideReturn
@@ -2575,7 +2633,7 @@ static void geometryRelateMultiPolygon(const Geometry a, Container<Polygon> b, d
       {
          case bbox:              bboxRelatePolygon(a.bbox, bPoly, e, r); break;
          case point:             pointRelatePolygon(a.point, bPoly, e, r); break;
-         case lineString:        lineStringRelatePolygon(a.lineString, bPoly, e, result); break;
+         case lineString:        lineStringRelatePolygon(a.lineString, bPoly, e, r); break;
          case polygon:           polygonRelatePolygon(a.polygon, bPoly, e, r, false); break;
          case multiPoint:
             for(p : a.multiPoint)

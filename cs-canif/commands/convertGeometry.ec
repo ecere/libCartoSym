@@ -14,7 +14,7 @@ static bool readGeometryFromCQL2(Geometry geometry, CQL2Expression cql2)
       {
          FieldValue val { };
          CartoSymEvaluator evaluator { class(CartoSymEvaluator) };
-#ifdef _DEBUG
+#if 0 //def _DEBUG
          CQL2ExpInstance inst =
             iCQL2._class == class(CQL2ExpInstance) ? (CQL2ExpInstance)iCQL2 : null;
          const String instType = inst && inst.instance && inst.instance._class ?
@@ -30,7 +30,7 @@ static bool readGeometryFromCQL2(Geometry geometry, CQL2Expression cql2)
 
             if(g->type != none)
             {
-#ifdef _DEBUG
+#if 0 // def _DEBUG
                if(instType)
                   PrintLn($"Successfully parsed a ", instType);
 #endif

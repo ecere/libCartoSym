@@ -8,6 +8,8 @@ import "convertGeometry"
 import "convertFeatures"
 import "convertExpression"
 
+import "de9imRelations"
+
 static void showSyntax()
 {
    PrintLn(
@@ -33,6 +35,9 @@ static void showSyntax()
       "   convert <input file> <output file>\n"
       "      Transcode cartographic symbology style sheet, geometry, feature collection or expression\n"
       "\n"
+      "   de9im <geometry A file> <geometry B file>\n"
+      "      Evaluate Dimensionally Extended 9 Intersection Matrix and spatial relation of two geometries\n"
+      "\n"
 //      "Options:\n"
       );
 }
@@ -54,6 +59,7 @@ public class CSCanif : Application
       int cmdArg = 0;
       // Command arguments
       const String inputFile = null, outputFile = null;
+      const String geomA = null, geomB = null;
       Map<String, FeatureDataType> typeMap = null;
 
       for(a = 1; !syntaxError && a < argc; a++)
@@ -90,6 +96,9 @@ public class CSCanif : Application
                      case convert:
                         inputFile = arg;
                         break;
+                     case de9im:
+                        geomA = arg;
+                        break;
                      default: syntaxError = true; break;
                   }
                   break;
@@ -99,6 +108,9 @@ public class CSCanif : Application
                   {
                      case convert:
                         outputFile = arg;
+                        break;
+                     case de9im:
+                        geomB = arg;
                         break;
                      default: syntaxError = true; break;
                   }
@@ -131,13 +143,17 @@ public class CSCanif : Application
                      GetExtension(outputFile, outExt);
 
                      if(!strcmpi(ext, "csjson") || !strcmpi(ext, "cscss") ||
-                        (!strcmpi(ext, "json") && strcmpi(outExt, "cql2") && strcmpi(outExt, "cql2text")) ||
+                        (!strcmpi(ext, "json") && strcmpi(outExt, "cql2") &&
+                          strcmpi(outExt, "cql2text") && strcmpi(outExt, "wkb") &&
+                          strcmpi(outExt, "wkt") && strcmpi(outExt, "wkbc")) ||
                         !strcmpi(ext, "mbgl") ||
                         !strcmpi(ext, "sld"))
                         result = convertStyle(inputFile, null, outputFile, null, typeMap);
                      else if(!strcmpi(ext, "wkt") || !strcmpi(ext, "wkb") ||
                         (!strcmpi(ext, "geojson") &&
-                           (strcmpi(outExt, "wkbc") && strcmpi(outExt, "geojson"))))
+                           (strcmpi(outExt, "wkbc") && strcmpi(outExt, "geojson"))) ||
+                           (!strcmpi(ext, "json") && strcmpi(outExt, "cql2") &&
+                          strcmpi(outExt, "cql2text") && strcmpi(outExt, "wkbc")))
                         result = convertGeometry(inputFile, null, outputFile, null);
                      else if(!strcmpi(ext, "geojson") || !strcmpi(ext, "wkbc"))
                         result = convertFeatures(inputFile, null, outputFile, null);
@@ -147,6 +163,18 @@ public class CSCanif : Application
                      else
                         PrintLn($"Unrecognized input extension");
                   }
+                  else
+                     showSyntax();
+
+                  if(!result)
+                     exitCode = 1;
+                  break;
+               }
+               case de9im:
+               {
+                  bool result = false;
+                  if(geomA && geomB)
+                     result = de9imRelations(geomA, null, geomB, null);
                   else
                      showSyntax();
 

@@ -67,7 +67,8 @@
             "convertStyle.ec",
             "convertGeometry.ec",
             "convertFeatures.ec",
-            "convertExpression.ec"
+            "convertExpression.ec",
+            "de9imRelations.ec"
          ]
       },
       {
