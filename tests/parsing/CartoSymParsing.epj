@@ -48,7 +48,7 @@
       {
          "Folder" : "testing",
          "Files" : [
-            "../../../eC/extras/testing/testingFramework.ec"
+            "$(EC_SDK_SRC)/extras/testing/testingFramework.ec"
          ]
       },
       {

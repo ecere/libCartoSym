@@ -1,4 +1,4 @@
-.PHONY: all clean realclean distclean test CartoSym CQL2 DE9IM SFCollections SFGeometry GeoExtents
+.PHONY: all clean realclean distclean test CartoSym CQL2 DE9IM SFCollections SFGeometry GeoExtents cs-canif
 
 CARTOSYM_ABSPATH := $(dir $(realpath $(firstword $(MAKEFILE_LIST))))
 
@@ -11,7 +11,10 @@ include $(_CF_DIR)crossplatform.mk
 
 # TARGETS
 
-all: CartoSym
+all: cs-canif
+
+cs-canif: CartoSym
+	+cd cs-canif && $(_MAKE)
 
 CartoSym: CQL2
 	+cd CartoSym && $(_MAKE)
@@ -36,6 +39,7 @@ test: all
 	+cd tests/parsing && $(_MAKE) test
 
 clean:
+	+cd cs-canif && $(_MAKE) clean
 	+cd CartoSym && $(_MAKE) clean
 	+cd CQL2 && $(_MAKE) clean
 	+cd DE9IM && $(_MAKE) clean
@@ -46,6 +50,7 @@ clean:
 	+cd tests/parsing && $(_MAKE) clean
 	
 realclean:
+	+cd cs-canif && $(_MAKE) realclean
 	+cd CartoSym && $(_MAKE) realclean
 	+cd CQL2 && $(_MAKE) realclean
 	+cd DE9IM && $(_MAKE) realclean
@@ -56,6 +61,7 @@ realclean:
 	+cd tests/parsing && $(_MAKE) realclean
 	
 distclean:
+	+cd cs-canif && $(_MAKE) distclean
 	+cd CartoSym && $(_MAKE) distclean
 	+cd CQL2 && $(_MAKE) distclean
 	+cd DE9IM && $(_MAKE) distclean

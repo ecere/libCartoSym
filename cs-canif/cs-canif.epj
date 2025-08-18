@@ -1,0 +1,92 @@
+{
+   "Version" : 0.2,
+   "ModuleName" : "cs-canif",
+   "Options" : {
+      "Warnings" : "All",
+      "PreprocessorDefinitions" : [
+         "IMPORT_STATIC=\"\""
+      ],
+      "TargetType" : "Executable",
+      "TargetFileName" : "cs-canif",
+      "Libraries" : [
+         "ecrt"
+      ],
+      "Console" : true
+   },
+   "Platforms" : [
+      {
+         "Name" : "linux",
+         "Options" : {
+            "Libraries" : [
+               "m"
+            ]
+         }
+      }
+   ],
+   "Configurations" : [
+      {
+         "Name" : "Debug",
+         "Options" : {
+            "Debug" : true,
+            "Optimization" : "None",
+            "PreprocessorDefinitions" : [
+               "_DEBUG"
+            ],
+            "FastMath" : false
+         }
+      },
+      {
+         "Name" : "Release",
+         "Options" : {
+            "Debug" : false,
+            "Optimization" : "Speed",
+            "FastMath" : true
+         }
+      }
+   ],
+   "Files" : [
+      {
+         "Folder" : "tests",
+         "Files" : [
+            "../tests/cscss/1-core.cscss",
+            "../tests/cscss/2-vector-polygon.cscss",
+            "../tests/cscss/3-vector-line.cscss",
+            "../tests/cscss/4-vector-point.cscss",
+            "../tests/cscss/5-coverage-dem.cscss",
+            "../tests/cscss/6-coverage-sentinel2.cscss",
+            "../tests/cscss/7-coverage-ndvi.cscss",
+            "../tests/cscss/8-coverage-hillshading.cscss",
+            "../tests/cscss/9-coverage-hillshading-opacity.cscss",
+            "../tests/cscss/10-natural_earth_economies.cscss",
+            "../tests/cscss/11-natural_earth_continents.cscss"
+         ]
+      },
+      {
+         "Folder" : "commands",
+         "Files" : [
+            "convertStyle.ec"
+         ]
+      },
+      {
+         "Folder" : "mbgl",
+         "Files" : [
+            "../MapboxStyles/gggLevels.ec",
+            "../MapboxStyles/mbglParser.ec",
+            "../MapboxStyles/mbglWriter.ec"
+         ]
+      },
+      {
+         "Folder" : "sldse",
+         "Files" : [
+            "$(EC_SDK_SRC)/extras/XMLParser.ec",
+            "../SLDSE/sldParser.ec",
+            "../SLDSE/sldWriter.ec"
+         ]
+      },
+      "cs-canif.ec"
+   ],
+   "ResourcesPath" : "",
+   "Resources" : [
+
+   ]
+}

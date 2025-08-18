@@ -37,7 +37,7 @@
       {
          "Folder" : "extras",
          "Files" : [
-            "../../eC/extras/iso8601.ec"
+            "$(EC_SDK_SRC)/extras/iso8601.ec"
          ]
       },
       {
