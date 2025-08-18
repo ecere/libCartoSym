@@ -643,7 +643,7 @@ public:
       else if(constant.type.type == integer && (constant.type.format == hex || constant.type.format == color))
       {
          out.Print("#");
-         out.Printf(FORMAT64HEX, constant.i);
+         out.Printf((__runtimePlatform == win32) ? "%I64X" : "%llX", constant.i);
       }
       else
          out.Print(constant);
