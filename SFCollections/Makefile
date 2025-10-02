@@ -36,10 +36,11 @@ CONSOLE = -mwindows
 # INCLUDES
 
 SFCOLLECTIONS_ABSPATH := $(dir $(realpath $(firstword $(MAKEFILE_LIST))))
-CARTOSYM_ABSPATH := $(SFCOLLECTIONS_ABSPATH)../
+
+CARTOSYM_ABSPATH := $(realpath $(dir $(SFCOLLECTIONS_ABSPATH))../)
 
 ifndef EC_SDK_SRC
-EC_SDK_SRC := $(CARTOSYM_ABSPATH)../eC
+EC_SDK_SRC := $(realpath $(dir $(CARTOSYM_ABSPATH)/)../eC)
 endif
 
 _CF_DIR = $(EC_SDK_SRC)/
@@ -49,12 +50,12 @@ include $(_CF_DIR)default.cf
 
 ifndef WINDOWS_HOST
 ifdef OSX_HOST
-export DYLD_LIBRARY_PATH := $(DYLD_LIBRARY_PATH):$(CARTOSYM_ABSPATH)/$(SODESTDIR)
+export DYLD_LIBRARY_PATH := $(DYLD_LIBRARY_PATH):$(CARTOSYM_ABSPATH)/$(HOST_SODESTDIR)
 else
-export LD_LIBRARY_PATH := $(LD_LIBRARY_PATH):$(CARTOSYM_ABSPATH)/$(SODESTDIR)
+export LD_LIBRARY_PATH := $(LD_LIBRARY_PATH):$(CARTOSYM_ABSPATH)/$(HOST_SODESTDIR)
 endif
 else
-export PATH := $(PATH);$(CARTOSYM_ABSPATH)/$(SODESTDIR)
+export PATH := $(PATH);$(CARTOSYM_ABSPATH)/$(HOST_SODESTDIR)
 endif
 
 # POST-INCLUDES VARIABLES
@@ -65,10 +66,18 @@ RES =
 
 TARGET_NAME := SFCollections
 
+# PLATFORM-SPECIFIC OPTIONS
+
+ifdef WINDOWS_TARGET
+
+OFLAGS += -static-libgcc
+
+endif
+
 TARGET = obj/$(CONFIG).$(PLATFORM)$(COMPILER_SUFFIX)$(DEBUG_SUFFIX)/$(LP)$(TARGET_NAME)$(OUT)
 
 _ECSOURCES = \
-	../../eC/extras/iso8601.ec \
+	$(EC_SDK_SRC)/extras/iso8601.ec \
 	deps/MinimalProjection.ec \
 	deps/TimeIntervals.ec \
 	FeatureCollection.ec \
@@ -183,8 +192,8 @@ endif
 
 # SYMBOL RULES
 
-$(OBJ)iso8601.sym: ../../eC/extras/iso8601.ec
-	$(ECP) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) -c $(call quote_path,../../eC/extras/iso8601.ec) -o $(call quote_path,$@)
+$(OBJ)iso8601.sym: $(EC_SDK_SRC)/extras/iso8601.ec
+	$(ECP) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) -c $(call quote_path,$(EC_SDK_SRC)/extras/iso8601.ec) -o $(call quote_path,$@)
 
 $(OBJ)MinimalProjection.sym: deps/MinimalProjection.ec
 	$(ECP) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) -c $(call quote_path,deps/MinimalProjection.ec) -o $(call quote_path,$@)
@@ -206,8 +215,8 @@ $(OBJ)wkbc.sym: wkbc.ec
 
 # C OBJECT RULES
 
-$(OBJ)iso8601.c: ../../eC/extras/iso8601.ec $(OBJ)iso8601.sym | $(SYMBOLS)
-	$(ECC) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) $(FVISIBILITY) -c $(call quote_path,../../eC/extras/iso8601.ec) -o $(call quote_path,$@) -symbols $(OBJ)
+$(OBJ)iso8601.c: $(EC_SDK_SRC)/extras/iso8601.ec $(OBJ)iso8601.sym | $(SYMBOLS)
+	$(ECC) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) $(FVISIBILITY) -c $(call quote_path,$(EC_SDK_SRC)/extras/iso8601.ec) -o $(call quote_path,$@) -symbols $(OBJ)
 
 $(OBJ)MinimalProjection.c: deps/MinimalProjection.ec $(OBJ)MinimalProjection.sym | $(SYMBOLS)
 	$(ECC) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) $(FVISIBILITY) -c $(call quote_path,deps/MinimalProjection.ec) -o $(call quote_path,$@) -symbols $(OBJ)

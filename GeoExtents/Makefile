@@ -36,10 +36,11 @@ CONSOLE = -mwindows
 # INCLUDES
 
 GEOEXTENTS_ABSPATH := $(dir $(realpath $(firstword $(MAKEFILE_LIST))))
-CARTOSYM_ABSPATH := $(GEOEXTENTS_ABSPATH)../
+
+CARTOSYM_ABSPATH := $(realpath $(dir $(GEOEXTENTS_ABSPATH))../)
 
 ifndef EC_SDK_SRC
-EC_SDK_SRC := $(CARTOSYM_ABSPATH)../eC
+EC_SDK_SRC := $(realpath $(dir $(CARTOSYM_ABSPATH)/)../eC)
 endif
 
 _CF_DIR = $(EC_SDK_SRC)/
@@ -107,7 +108,12 @@ PRJ_CFLAGS += \
 			 -DIMPORT_STATIC=\"\"
 
 ECFLAGS += -module $(MODULE)
+
 # PLATFORM-SPECIFIC OPTIONS
+
+ifdef WINDOWS_TARGET
+OFLAGS += -static-libgcc
+endif
 
 ifdef LINUX_TARGET
 

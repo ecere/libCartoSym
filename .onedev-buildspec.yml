@@ -1,0 +1,180 @@
+version: 20
+jobs:
+- name: Build
+  jobExecutor: DockerExecutor
+  steps:
+  - !CheckoutStep
+    name: Checkout
+    cloneCredential: !DefaultCredential {}
+    withLfs: false
+    withSubmodules: false
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !CommandStep
+    name: Build
+    runInContainer: true
+    image: ubuntu:18.04
+    interpreter: !DefaultInterpreter
+      commands:
+      - rm /etc/apt/apt.conf.d/docker-clean
+      - echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/98keep-debs
+      - echo 'APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/99keep-debs
+      - dpkg --add-architecture i386
+      - apt -y update
+      - apt -y install build-essential
+#      - apt -y install gcc-8
+#      - apt -y install g++-8
+      - apt -y install gcc-multilib
+#      - apt -y install g++-8-multilib
+      - apt -y install binutils-mingw-w64
+      - apt -y install pkg-config
+#      - apt -y install python3-pip
+#      - apt -y install rustc
+# make ARCH=x32 py_bindings &&
+# make ARCH=x32 rust_bindings &&
+#        rm /usr/bin/gcc && rm /usr/bin/g++ && ln -s /usr/bin/gcc-8 /usr/bin/gcc && ln -s /usr/bin/g++-8 /usr/bin/g++ &&
+#        make bindings &&
+#        rm /usr/bin/gcc && rm /usr/bin/g++ && ln -s /usr/bin/gcc-7 /usr/bin/gcc && ln -s /usr/bin/g++-7 /usr/bin/g++ &&
+#        make ARCH=x32 c_bindings &&
+#        rm /usr/bin/gcc && rm /usr/bin/g++ && ln -s /usr/bin/gcc-8 /usr/bin/gcc && ln -s /usr/bin/g++-8 /usr/bin/g++ &&
+#        make ARCH=x32 cpp_bindings &&
+#        rm /usr/bin/gcc && rm /usr/bin/g++ && ln -s /usr/bin/gcc-7 /usr/bin/gcc && ln -s /usr/bin/g++-7 /usr/bin/g++ &&
+#        make PLATFORM=win32 cpp_bindings &&
+#        make PLATFORM=win32 ARCH=x32 cpp_bindings &&
+#      - apt -y install curl && export RUSTUP_HOME="/usr" && export CARGO_HOME="/usr" && curl https://sh.rustup.rs -sSf | sh -s -- -y
+#      - pip3 install cffi
+      - tar xf mingw-w64/*.tar.gz &&
+        tar xf mingw-w64-runtime/*.tar.gz &&
+        dpkg -i mingw-w64-common_6.0.0-3_all.deb &&
+        dpkg -i mingw-w64-x86-64-dev_6.0.0-3_all.deb &&
+        dpkg -i mingw-w64-i686-dev_6.0.0-3_all.deb &&
+        dpkg -i mingw-w64-tools_6.0.0-3_amd64.deb &&
+        dpkg -i gcc-mingw-w64-base_8.4.0-1ubuntu1~18.04+21.4_amd64.deb &&
+        dpkg -i gcc-mingw-w64-x86-64_8.4.0-1ubuntu1~18.04+21.4_amd64.deb &&
+        dpkg -i gcc-mingw-w64-i686_8.4.0-1ubuntu1~18.04+21.4_amd64.deb &&
+        dpkg -i gcc-mingw-w64_8.4.0-1ubuntu1~18.04+21.4_all.deb &&
+        dpkg -i g++-mingw-w64-x86-64_8.4.0-1ubuntu1~18.04+21.4_amd64.deb &&
+        dpkg -i g++-mingw-w64-i686_8.4.0-1ubuntu1~18.04+21.4_amd64.deb &&
+        dpkg -i g++-mingw-w64_8.4.0-1ubuntu1~18.04+21.4_all.deb &&
+        dpkg -i mingw-w64_6.0.0-3_all.deb
+      - apt -y install make
+      - apt -y install zlib1g-dev
+      - apt -y install zlib1g-dev:i386
+      - apt -y install git
+      - apt -y install wine-stable
+      - apt -y install wine64
+#      - update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 100
+#      - update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 100
+#       tar xf eC/*bindings*.tar.gz -C eC/ &&
+      - tar xf eC/*output-linux*.tar.gz -C / &&
+        tar xf eC/*extras*.tar.gz -C eC/ &&
+        mkdir eC/obj/ && tar xf eC/*binaries-linux-x86_64.tar.gz -C eC/obj/ &&
+        tar xf eC/*binaries-windows-x86_64.tar.gz -C eC/obj/ &&
+        tar xf eC/*binaries-linux-i686.tar.gz -C eC/obj/ &&
+        tar xf eC/*binaries-windows-i686.tar.gz -C eC/obj/ &&
+        tar xf win32-patches/*.tar.gz &&
+        tar xf zlib-win32/*zlib-windows-x64.tar.gz &&
+        ln -sf $(pwd)/zlib-windows-x64/include/zlib.h /usr/x86_64-w64-mingw32/include/ &&
+        ln -sf $(pwd)/zlib-windows-x64/include/zconf.h /usr/x86_64-w64-mingw32/include/ &&
+        ln -sf $(pwd)/zlib-windows-x64/lib/libz.a /usr/x86_64-w64-mingw32/lib/ &&
+        tar xf zlib-win32/*zlib-windows-x32.tar.gz &&
+        ln -sf $(pwd)/zlib-windows-x32/include/zlib.h /usr/i686-w64-mingw32/include/ &&
+        ln -sf $(pwd)/zlib-windows-x32/include/zconf /usr/i686-w64-mingw32/include/ &&
+        ln -sf $(pwd)/zlib-windows-x32/lib/libz.a /usr/i686-w64-mingw32/lib/ &&
+        tar xf upx/*linux-x86_64.tar.gz -C /usr/bin &&
+        mkdir $(pwd)/.wine && export WINEPREFIX=$(pwd)/.wine &&
+        git config --global --add safe.directory '*' &&
+        export EC_SDK_SRC=$(pwd)/eC &&
+        make && make test &&
+        make ARCH=x32 STATIC_SYSLIBS=y -j2 && make ARCH=x32 test &&
+        make PLATFORM=win32 -j2 && make PLATFORM=win32 test &&
+        make PLATFORM=win32 ARCH=x32 V=1 && make PLATFORM=win32 ARCH=x32 V=1 test &&
+        cd obj &&
+        tar czf ../@project_name@-@tag@-@branch@-@commit_hash@-@build_number@-linux-x86_64.tar.gz linux &&
+        tar czf ../@project_name@-@tag@-@branch@-@commit_hash@-@build_number@-linux-i686.tar.gz linux.x32 &&
+        tar czf ../@project_name@-@tag@-@branch@-@commit_hash@-@build_number@-windows-x86_64.tar.gz win32 &&
+        tar czf ../@project_name@-@tag@-@branch@-@commit_hash@-@build_number@-windows-i686.tar.gz win32.x32 &&
+        cd ..
+#        tar czf @project_name@-@tag@-@branch@-@commit_hash@-@build_number@-bindings.tar.gz bindings/
+    useTTY: true
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !PublishArtifactStep
+    name: Artefacts
+    artifacts: '@project_name@-@tag@-@branch@-@commit_hash@-@build_number@-linux-x86_64.tar.gz'
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !PublishArtifactStep
+    name: Artefacts32bit
+    artifacts: '@project_name@-@tag@-@branch@-@commit_hash@-@build_number@-linux-i686.tar.gz'
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !PublishArtifactStep
+    name: ArtefactsWindows
+    artifacts: '@project_name@-@tag@-@branch@-@commit_hash@-@build_number@-windows-x86_64.tar.gz'
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  - !PublishArtifactStep
+    name: ArtefactsWindows32Bit
+    artifacts: '@project_name@-@tag@-@branch@-@commit_hash@-@build_number@-windows-i686.tar.gz'
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+#  - !PublishArtifactStep
+#    name: ArtefactsBindings
+#    artifacts: '@project_name@-@tag@-@branch@-@commit_hash@-@build_number@-bindings.tar.gz'
+#    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  triggers:
+  - !PullRequestUpdateTrigger
+    projects: CartoSym
+  - !BranchUpdateTrigger
+    projects: CartoSym
+  projectDependencies:
+  - projectPath: zlib-win32
+    buildProvider: !LastFinishedBuild
+      jobName: Build
+      refName: refs/heads/main
+    artifacts: '**'
+    accessTokenSecret: ecere-sdk-access
+    destinationPath: zlib-win32
+  - projectPath: win32-patches
+    buildProvider: !LastFinishedBuild
+      jobName: Build
+      refName: refs/heads/master
+    artifacts: '**'
+    accessTokenSecret: ecere-sdk-access
+    destinationPath: win32-patches
+  - projectPath: eC
+    buildProvider: !LastFinishedBuild
+      jobName: Build
+      refName: refs/heads/main
+    artifacts: '**'
+    accessTokenSecret: ecere-sdk-access
+    destinationPath: eC
+  - projectPath: upx
+    buildProvider: !LastFinishedBuild
+      jobName: Build
+      refName: refs/heads/master
+    artifacts: '**'
+    accessTokenSecret: ecere-sdk-access
+    destinationPath: upx
+  - projectPath: mingw-w64
+    buildProvider: !LastFinishedBuild
+      jobName: Build
+      refName: refs/heads/master
+    artifacts: '**'
+    accessTokenSecret: ecere-sdk-access
+    destinationPath: mingw-w64
+  - projectPath: mingw-w64-runtime
+    buildProvider: !LastFinishedBuild
+      jobName: Build
+      refName: refs/heads/master
+    artifacts: '**'
+    accessTokenSecret: ecere-sdk-access
+    destinationPath: mingw-w64-runtime
+  retryCondition: never
+  maxRetries: 3
+  retryDelay: 30
+  caches:
+  - key: AptCache
+    path: /var/cache/apt
+  - key: AptList
+    path: /var/lib/apt/lists
+  timeout: 3600
+  postBuildActions:
+  - !SendNotificationAction
+    condition: failed or (successful and previous is failed)
+    receivers: committers and submitter

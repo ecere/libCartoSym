@@ -205,6 +205,7 @@ public struct GeoExtent
 
    bool intersects(const GeoExtent b)
    {
+      // FIXME: GeoExtent { ll.lon = 180, ur.lon = -190 }
       if(ll.lon < MAXDOUBLE && ll.lon > ur.lon)
       {
          GeoExtent a { { ll.lat, ll.lon }, { ur.lat, 180 } };

@@ -14,7 +14,7 @@ See also [this script](fetchAndBuild.sh) (running all of these commands), fetchi
 ```
 mkdir csbuild
 cd csbuild
-git clone -b extras --single-branch https://github.com/ecere/eC.git
+git clone -b main --single-branch https://github.com/ecere/eC.git
 git clone -b main --single-branch https://github.com/ecere/libCartoSym.git
 cd eC
 make

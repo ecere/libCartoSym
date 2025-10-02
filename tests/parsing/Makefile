@@ -52,16 +52,16 @@ RUNNER =
 
 ifndef WINDOWS_HOST
 ifdef OSX_HOST
-export DYLD_LIBRARY_PATH := $(DYLD_LIBRARY_PATH):$(CARTOSYM_ABSPATH)/$(SODESTDIR)
+export DYLD_LIBRARY_PATH := $(DYLD_LIBRARY_PATH):$(CARTOSYM_ABSPATH)/$(HOST_SODESTDIR)
 else
-export LD_LIBRARY_PATH := $(LD_LIBRARY_PATH):$(CARTOSYM_ABSPATH)/$(SODESTDIR)
+export LD_LIBRARY_PATH := $(LD_LIBRARY_PATH):$(CARTOSYM_ABSPATH)/$(HOST_SODESTDIR)
 endif
 ifdef WINDOWS_TARGET
 export WINEPATH := $(WINEPATH);$(CARTOSYM_ABSPATH)/$(SODESTDIR);$(EC_SDK_SRC)/$(SODESTDIR)
 RUNNER = wine
 endif
 else
-export PATH := $(PATH);$(CARTOSYM_ABSPATH)/$(SODESTDIR)
+export PATH := $(PATH);$(CARTOSYM_ABSPATH)/$(HOST_SODESTDIR)
 endif
 
 # POST-INCLUDES VARIABLES
@@ -131,7 +131,14 @@ PRJ_CFLAGS += \
 			 -DIMPORT_STATIC=\"\"
 
 ECFLAGS += -module $(MODULE)
+
 # PLATFORM-SPECIFIC OPTIONS
+
+ifdef WINDOWS_TARGET
+
+OFLAGS += -static-libgcc
+
+endif
 
 ifdef LINUX_TARGET
 
@@ -197,8 +204,8 @@ endif
 
 # SYMBOL RULES
 
-$(OBJ)testingFramework.sym: ../../../eC/extras/testing/testingFramework.ec
-	$(ECP) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) -c $(call quote_path,../../../eC/extras/testing/testingFramework.ec) -o $(call quote_path,$@)
+$(OBJ)testingFramework.sym: $(EC_SDK_SRC)/extras/testing/testingFramework.ec
+	$(ECP) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) -c $(call quote_path,$(EC_SDK_SRC)/extras/testing/testingFramework.ec) -o $(call quote_path,$@)
 
 $(OBJ)CartoSymParsing.sym: CartoSymParsing.ec
 	$(ECP) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) -c $(call quote_path,CartoSymParsing.ec) -o $(call quote_path,$@)
@@ -209,8 +216,8 @@ $(OBJ)sldWriter.sym: ../../SLDSE/sldWriter.ec
 $(OBJ)sldParser.sym: ../../SLDSE/sldParser.ec
 	$(ECP) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) -c $(call quote_path,../../SLDSE/sldParser.ec) -o $(call quote_path,$@)
 
-$(OBJ)XMLParser.sym: ../../../eC/extras/XMLParser.ec
-	$(ECP) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) -c $(call quote_path,../../../eC/extras/XMLParser.ec) -o $(call quote_path,$@)
+$(OBJ)XMLParser.sym: $(EC_SDK_SRC)/extras/XMLParser.ec
+	$(ECP) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) -c $(call quote_path,$(EC_SDK_SRC)/extras/XMLParser.ec) -o $(call quote_path,$@)
 
 $(OBJ)mbglParser.sym: ../../MapboxStyles/mbglParser.ec
 	$(ECP) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) -c $(call quote_path,../../MapboxStyles/mbglParser.ec) -o $(call quote_path,$@)
@@ -223,8 +230,8 @@ $(OBJ)mbglWriter.sym: ../../MapboxStyles/mbglWriter.ec
 
 # C OBJECT RULES
 
-$(OBJ)testingFramework.c: ../../../eC/extras/testing/testingFramework.ec $(OBJ)testingFramework.sym | $(SYMBOLS)
-	$(ECC) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) $(FVISIBILITY) -c $(call quote_path,../../../eC/extras/testing/testingFramework.ec) -o $(call quote_path,$@) -symbols $(OBJ)
+$(OBJ)testingFramework.c: $(EC_SDK_SRC)/extras/testing/testingFramework.ec $(OBJ)testingFramework.sym | $(SYMBOLS)
+	$(ECC) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) $(FVISIBILITY) -c $(call quote_path,$(EC_SDK_SRC)/extras/testing/testingFramework.ec) -o $(call quote_path,$@) -symbols $(OBJ)
 
 $(OBJ)CartoSymParsing.c: CartoSymParsing.ec $(OBJ)CartoSymParsing.sym | $(SYMBOLS)
 	$(ECC) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) $(FVISIBILITY) -c $(call quote_path,CartoSymParsing.ec) -o $(call quote_path,$@) -symbols $(OBJ)
@@ -235,8 +242,8 @@ $(OBJ)sldWriter.c: ../../SLDSE/sldWriter.ec $(OBJ)sldWriter.sym | $(SYMBOLS)
 $(OBJ)sldParser.c: ../../SLDSE/sldParser.ec $(OBJ)sldParser.sym | $(SYMBOLS)
 	$(ECC) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) $(FVISIBILITY) -c $(call quote_path,../../SLDSE/sldParser.ec) -o $(call quote_path,$@) -symbols $(OBJ)
 
-$(OBJ)XMLParser.c: ../../../eC/extras/XMLParser.ec $(OBJ)XMLParser.sym | $(SYMBOLS)
-	$(ECC) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) $(FVISIBILITY) -c $(call quote_path,../../../eC/extras/XMLParser.ec) -o $(call quote_path,$@) -symbols $(OBJ)
+$(OBJ)XMLParser.c: $(EC_SDK_SRC)/extras/XMLParser.ec $(OBJ)XMLParser.sym | $(SYMBOLS)
+	$(ECC) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) $(FVISIBILITY) -c $(call quote_path,$(EC_SDK_SRC)/extras/XMLParser.ec) -o $(call quote_path,$@) -symbols $(OBJ)
 
 $(OBJ)mbglParser.c: ../../MapboxStyles/mbglParser.ec $(OBJ)mbglParser.sym | $(SYMBOLS)
 	$(ECC) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) $(FVISIBILITY) -c $(call quote_path,../../MapboxStyles/mbglParser.ec) -o $(call quote_path,$@) -symbols $(OBJ)

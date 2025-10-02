@@ -10,7 +10,7 @@ mkdir csbuild
 cd csbuild
 
 echo Fetching eC core development environment...
-git clone -b extras --single-branch https://github.com/ecere/eC.git
+git clone -b main --single-branch https://github.com/ecere/eC.git
 
 echo Fetching libCartoSym...
 git clone -b main --single-branch https://github.com/ecere/libCartoSym.git
