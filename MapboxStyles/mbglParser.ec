@@ -831,7 +831,11 @@ private:
          }
       }
       else
-         a = layout.textanchor;
+      {
+         // REVIEW: Complex text variable anchor
+         if(layout.textvariableanchor.type.type == text)
+            a = layout.textanchor.s;
+      }
 
       if(complexExpAlignment)
       {
@@ -1545,11 +1549,11 @@ public:
       //isset { return textoffset.type.type != nil && textoffset.type.type != 0; }
    };
    // string vs enum? https://github.com/mapbox/mapbox-gl-js/issues/5577
-   property String textanchor // REVIEW: Can this be a MBGLFilterValue?
+   property MBGLFilterValue textanchor
    {
-      set { delete textanchor; if(value) textanchor = CopyString(value); }
-      get { return this ? textanchor : null; }
-      isset { return textanchor != null; }
+      set { textanchor = value; }
+      get { value = textanchor; }
+      isset { return textanchor.type.type != nil && textanchor.type.type != 0; }
    };
    // NOTE: textanchor seems deprecated...
    property MBGLFilterValue textvariableanchor
@@ -1739,7 +1743,7 @@ private:
       textsize.OnFree();
       textjustify.OnFree();
       delete textoffset;
-      delete textanchor;
+      textanchor.OnFree();
       textvariableanchor.OnFree();
       textrotationalignment.OnFree();
       linejoin.OnFree();
@@ -1772,7 +1776,7 @@ private:
             textsize = textsize;
             textjustify = textjustify;
             textoffset = textoffset;
-            textanchor = CopyString(textanchor);
+            textanchor = textanchor;
             texthalowidth = texthalowidth;
             texttransform = texttransform;
             textrotationalignment = textrotationalignment;
@@ -1799,7 +1803,7 @@ private:
    MBGLFilterValue textsize;
    Array<double> textoffset;
    MBGLFilterValue textjustify;
-   String textanchor; //deprecated
+   MBGLFilterValue textanchor; //deprecated
    MBGLFilterValue texttransform;
    MBGLFilterValue textvariableanchor;
    MBGLFilterValue textradialoffset;

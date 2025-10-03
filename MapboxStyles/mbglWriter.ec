@@ -476,7 +476,7 @@ private:
          else if(al.horzAlign == right  && al.vertAlign == top)    s = "top-right";
          else if(al.horzAlign == left   && al.vertAlign == bottom) s = "bottom-left";
          else if(al.horzAlign == right  && al.vertAlign == bottom) s = "bottom-right";
-         layer.layout.textanchor = CopyString(s);
+         layer.layout.textanchor = { type = { text, mustFree = true }, s = CopyString(s) };
       }
    }
 
