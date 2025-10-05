@@ -969,10 +969,9 @@ public FeatureCollection loadGeoJSONEx(File f, HashMap<int64, Map<String, FieldV
          *retLinks = geoJSON.links;
          geoJSON.links = null;
       }
-
-      delete geoJSON;
-      delete geoJSONFeature;
    }
+   delete geoJSON;
+   delete geoJSONFeature;
    delete parser;
 
    return result;
