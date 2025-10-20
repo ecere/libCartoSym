@@ -140,6 +140,9 @@ public class CSCanif : Application
                      case eval:
                         featureID = arg;
                         break;
+                     case convert:
+                        layerID = arg;
+                        break;
                      default: syntaxError = true; break;
                   }
                   break;
@@ -186,7 +189,7 @@ public class CSCanif : Application
                           strcmpi(outExt, "wkt") && strcmpi(outExt, "wkbc")) ||
                         !strcmpi(ext, "mbgl") ||
                         !strcmpi(ext, "sld"))
-                        result = convertStyle(inputFile, null, outputFile, null, typeMap);
+                        result = convertStyle(inputFile, null, outputFile, null, typeMap, layerID);
                      else if(!strcmpi(ext, "wkt") || !strcmpi(ext, "wkb") ||
                         (!strcmpi(ext, "geojson") &&
                            (strcmpi(outExt, "wkbc") && strcmpi(outExt, "geojson"))) ||

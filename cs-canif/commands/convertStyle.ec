@@ -10,7 +10,7 @@ import "mbglWriter"
 bool convertStyle(
    const String inputFile, const String inType,
    const String outputFile, const String outType,
-   Map<String, FeatureDataType> typeMap)
+   Map<String, FeatureDataType> typeMap, const String layerID)
 {
    bool result = false;
    char inExt[MAX_EXTENSION], outExt[MAX_EXTENSION];
@@ -69,6 +69,21 @@ bool convertStyle(
 
    if(style)
    {
+      if(layerID)
+      {
+         CartoSymEvaluator evaluator { class(CartoSymEvaluator) };
+         CartoStyle boundStyle;
+
+         evaluator.setFeatureID(-1);
+         evaluator.setLayerID(layerID);
+
+         boundStyle = style.bind(evaluator, class(CartoSymbolizer), layerID);
+         // boundStyle.resolve(evaluator, class(CartoSymbolizer));
+
+         delete style;
+         style = boundStyle;
+      }
+
       if(!strcmpi(outType, "cscss"))
       {
          if(style.write(outputFile))
