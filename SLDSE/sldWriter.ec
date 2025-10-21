@@ -174,7 +174,7 @@ private:
          bool onlyLabel = sym.label && sym.label.elements && sym.label.elements.GetCount() && !topRule &&
             !(block.symbolizer && (block.symbolizer.mask & (CartoSymbolizerKind::fill | CartoSymbolizerKind::stroke)));
          if(!onlyLabel && type.type == vector && type.vectorType != points &&
-            sym.stroke.width && sym.stroke.casing.width && sym.stroke.casing.opacity)
+            sym.stroke.width && sym.stroke.casing.width && sym.opacity && sym.stroke.casing.opacity)
          {
             hasCasing = true;
             writeRulePass(block, filter, minScale, maxScale, type, sym, labelElementsBlock, flg, true, true, false);
@@ -459,7 +459,7 @@ private:
                writeHexColor(symbolizer.fill.color);
                f.Puts("</se:SvgParameter>\n");
                writeIndent();
-               f.Print("<se:SvgParameter name=\"fill-opacity\">", symbolizer.fill.opacity, "</se:SvgParameter>\n");
+               f.Print("<se:SvgParameter name=\"fill-opacity\">", symbolizer.opacity * symbolizer.fill.opacity, "</se:SvgParameter>\n");
                closeTag("se:Fill");
                closingTag = "se:PolygonSymbolizer";
             }
@@ -494,7 +494,7 @@ private:
                      writeIndent();
                      f.Print("<se:SvgParameter name=\"stroke-width\">", ctWidth, "</se:SvgParameter>\n");
                      writeIndent();
-                     f.Print("<se:SvgParameter name=\"stroke-opacity\">", symbolizer.stroke.casing.opacity, "</se:SvgParameter>\n");
+                     f.Print("<se:SvgParameter name=\"stroke-opacity\">", symbolizer.opacity * symbolizer.stroke.casing.opacity, "</se:SvgParameter>\n");
                      closeTag("se:Stroke");
 
                      //closeTag(closingTag);
@@ -516,7 +516,7 @@ private:
                   writeIndent();
                   f.Print("<se:SvgParameter name=\"stroke-width\">", symbolizer.stroke.width, "</se:SvgParameter>\n");
                   writeIndent();
-                  f.Print("<se:SvgParameter name=\"stroke-opacity\">", symbolizer.stroke.opacity, "</se:SvgParameter>\n");
+                  f.Print("<se:SvgParameter name=\"stroke-opacity\">", symbolizer.opacity * symbolizer.stroke.opacity, "</se:SvgParameter>\n");
                   closeTag("se:Stroke");
                }
             }
