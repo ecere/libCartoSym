@@ -83,28 +83,32 @@ bool convertStyle(
          delete style;
          style = boundStyle;
       }
-
-      if(!strcmpi(outType, "cscss"))
+      if(style && style.list && style.list.GetCount())
       {
-         if(style.write(outputFile))
-            result = true;
-         else
-            PrintLn($"Failed to write style as CartoSym-CSS");
+         if(!strcmpi(outType, "cscss"))
+         {
+            if(style.write(outputFile))
+               result = true;
+            else
+               PrintLn($"Failed to write style as CartoSym-CSS");
+         }
+         else if(!strcmpi(outType, "sld"))
+         {
+            if(writeSLD(style, outputFile, typeMap, 0, null))
+               result = true;
+            else
+               PrintLn($"Failed to write style as SLD/SE");
+         }
+         else if(!strcmpi(outType, "json"))
+         {
+            if(writeMBGL(style, outputFile, null, null, null, null, false, false, false))
+               result = true;
+            else
+               PrintLn($"Failed to write style as Mapbox GL / MapLibre style");
+         }
       }
-      else if(!strcmpi(outType, "sld"))
-      {
-         if(writeSLD(style, outputFile, typeMap, 0, null))
-            result = true;
-         else
-            PrintLn($"Failed to write style as SLD/SE");
-      }
-      else if(!strcmpi(outType, "json"))
-      {
-         if(writeMBGL(style, outputFile, null, null, null, null, false, false, false))
-            result = true;
-         else
-            PrintLn($"Failed to write style as Mapbox GL / MapLibre style");
-      }
+      else
+         PrintLn($"Empty style");
       delete style;
    }
    return result;
