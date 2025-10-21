@@ -952,7 +952,7 @@ public Instance createGenericInstance(CQL2Instantiation inst, Class c, CQL2Evalu
          instance._refCount++;
 
       setGenericInstanceMembers(instance, inst, evaluator, flg, c);
-      if(!flg->resolved)
+      if(!flg->resolved && false)
       {
          deleteInstance(c, instance);
          instance = null;
