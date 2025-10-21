@@ -272,6 +272,8 @@ Map<String, ShapeSymbolizerKind> shapeSymbolizerIdentifierMap
    { "stroke.color.r", strokeColor },
    { "stroke.color.g", strokeColor },
    { "stroke.color.b", strokeColor },
+   { "size", strokeWidth }, // For Dot::size mapping
+   { "color", strokeColor }, // For Dot::color mapping
    { "stroke.width", strokeWidth },
    { "stroke.casing", strokeCasing },
    { "stroke.casing.width", strokeCasingWidth },

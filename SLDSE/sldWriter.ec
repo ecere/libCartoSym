@@ -795,9 +795,32 @@ private:
                }
                else if(e.type == shape)
                {
-                  // TODO:
-                  //Shape shape = (Shape)e; // marker
+                  Shape shape = (Shape)e; // marker
 
+                  const String tag =
+                     widthUnit == meters ? "se:PointSymbolizer uom=\"http://www.opengeospatial.org/se/units/metre\"" :
+                     widthUnit == feet   ? "se:PointSymbolizer uom=\"http://www.opengeospatial.org/se/units/foot\"" :
+                                           "se:PointSymbolizer";
+                  openTag(tag);
+                  openTag("se:Graphic");
+                  writeIndent();
+                  openTag("se:Mark");
+                  f.Puts("<se:WellKnownName>circle</se:WellKnownName>");
+                  f.Puts("<se:Fill>");
+                  f.Print("<se:SvgParameter name=\"fill\">");
+                  writeHexColor(shape.stroke.color);
+                  f.Print("</se:SvgParameter>\n");
+                  //f.Print("<se:SvgParameter name=\"stroke\">");
+                  //writeHexColor(shape.stroke.color);
+                  //f.Print("</se:SvgParameter>\n");
+                  f.Print("<se:SvgParameter name=\"fill-opacity\">", shape.opacity * shape.stroke.opacity, "</se:SvgParameter>\n");
+                  // f.Print("<se:SvgParameter name=\"stroke-opacity\">", shape.opacity * shape.stroke.opacity, "</se:SvgParameter>\n");
+                  f.Puts("</se:Fill>");
+                  closeTag("se:Mark");
+                  f.Print("<se:Size>", shape.stroke.width, "</se:Size>\n");
+
+                  closeTag("se:Graphic");
+                  closeTag("se:PointSymbolizer");
                }
             }
          }

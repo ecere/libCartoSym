@@ -540,6 +540,18 @@ public:
       set { stroke.width = value; }
       get { return stroke.width; }
    }
+
+   property Color color
+   {
+      set { stroke.color = value; }
+      get { return stroke.color; }
+   }
+
+   property float opacity
+   {
+      set { stroke.opacity = value; }
+      get { return stroke.opacity; }
+   }
 }
 
 public class Path3D : GraphicalElement

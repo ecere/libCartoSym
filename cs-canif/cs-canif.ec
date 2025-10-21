@@ -74,6 +74,10 @@ public class CSCanif : Application
       const String features = null, featureID = null, layerID = null;    // For eval (with inputFile as well)
       Map<String, FeatureDataType> typeMap = null;
 
+      typeMap = { [
+         { "ne_10m_populated_places", { type = vector, vectorType = points } }
+      ] };
+
       for(a = 1; !syntaxError && a < argc; a++)
       {
          const char * arg = argv[a];
