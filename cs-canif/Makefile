@@ -128,10 +128,22 @@ endif
 
 LIBS += $(SHAREDLIB) $(EXECUTABLE) $(LINKOPT)
 
-ifndef STATIC_LIBRARY_TARGET
 OFLAGS += -L$(EC_SDK_SRC)/$(SODESTDIR)
+OFLAGS += -L$(CARTOSYM_ABSPATH)/$(SODESTDIR)
+
 LIBS += \
-	$(call _L,ecrt)
+	$(call _L,ecrt) \
+	$(call _L,CartoSym) \
+	$(call _L,CQL2) \
+	$(call _L,DE9IM) \
+	$(call _L,SFCollections) \
+	$(call _L,SFGeometry) \
+	$(call _L,GeoExtents)
+
+ifdef OSX_TARGET
+OFLAGS += $(if $(ENABLE_PYTHON_RPATHS),-Wl$(comma)-rpath$(comma)'@executable_path/../lib' -Wl$(comma)-rpath$(comma)'@executable_path/../../ecrt/lib',)
+else
+OFLAGS += $(if $(ENABLE_PYTHON_RPATHS),-Wl$(comma)-rpath='$$ORIGIN/../lib:$$ORIGIN/../../ecrt/lib',)
 endif
 
 PRJ_CFLAGS += \
