@@ -51,6 +51,7 @@ include $(_CF_DIR)default.cf
 ifndef WINDOWS_HOST
 ifdef OSX_HOST
 export DYLD_LIBRARY_PATH := $(DYLD_LIBRARY_PATH):$(CARTOSYM_ABSPATH)/$(HOST_SODESTDIR)
+export EC_LIB_PATH := $(CARTOSYM_ABSPATH)/$(HOST_SODESTDIR)lib
 else
 export LD_LIBRARY_PATH := $(LD_LIBRARY_PATH):$(CARTOSYM_ABSPATH)/$(HOST_SODESTDIR)
 endif
@@ -71,6 +72,14 @@ TARGET_NAME := CartoSym
 ifdef WINDOWS_TARGET
 
 OFLAGS += -static-libgcc
+
+else
+
+ifdef OSX_TARGET
+OFLAGS += $(if $(ENABLE_PYTHON_RPATHS),-Wl$(comma)-rpath$(comma)'@loader_path/../../ecrt/lib',)
+else
+OFLAGS += $(if $(ENABLE_PYTHON_RPATHS),-Wl$(comma)-rpath='$$ORIGIN/../../ecrt/lib',)
+endif
 
 endif
 
@@ -161,6 +170,9 @@ $(TARGET): $(SOURCES) $(RESOURCES_EAR) $(SYMBOLS) $(OBJECTS) | objdir
 	$(call addtolistfile,$(ECOBJECTS),$(OBJ)objects.lst)
 ifndef STATIC_LIBRARY_TARGET
 	$(LD) $(OFLAGS) @$(OBJ)objects.lst $(LIBS) -o $(TARGET) $(INSTALLNAME) $(SONAME)
+ifdef OSX_TARGET
+	install_name_tool -id @rpath/lib$(MODULE).dylib $(TARGET)
+endif
 ifndef NOSTRIP
 	$(STRIP) $(STRIPOPT) $(TARGET)
 endif

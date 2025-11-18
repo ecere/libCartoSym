@@ -42,7 +42,7 @@ public double computeEuclideanArea(int count, const Pointd * p)
    // TODO: Use depths when available
 
    // TODO: Implement Kahan / Neumaier summation -- https://en.wikipedia.org/wiki/Kahan_summation_algorithm
-#if !defined(__EMSCRIPTEN__) && !defined(__ANDROID__) && !defined(__UWP__)
+#if !defined(__EMSCRIPTEN__) && !defined(__ANDROID__) && !defined(__UWP__) && !defined(__APPLE__)
    #define AREA_DBLTYPE __float128
 #else
    #define AREA_DBLTYPE double

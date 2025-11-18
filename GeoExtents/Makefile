@@ -113,6 +113,15 @@ ECFLAGS += -module $(MODULE)
 
 ifdef WINDOWS_TARGET
 OFLAGS += -static-libgcc
+
+else
+
+ifdef OSX_TARGET
+OFLAGS += $(if $(ENABLE_PYTHON_RPATHS),-Wl$(comma)-rpath$(comma)'@loader_path/../../ecrt/lib',)
+else
+OFLAGS += $(if $(ENABLE_PYTHON_RPATHS),-Wl$(comma)-rpath='$$ORIGIN/../../ecrt/lib',)
+endif
+
 endif
 
 ifdef LINUX_TARGET
@@ -155,6 +164,9 @@ $(TARGET): $(SOURCES) $(RESOURCES_EAR) $(SYMBOLS) $(OBJECTS) | objdir
 	$(call addtolistfile,$(ECOBJECTS),$(OBJ)objects.lst)
 ifndef STATIC_LIBRARY_TARGET
 	$(LD) $(OFLAGS) @$(OBJ)objects.lst $(LIBS) -o $(TARGET) $(INSTALLNAME) $(SONAME)
+ifdef OSX_TARGET
+	install_name_tool -id @rpath/lib$(MODULE).dylib $(TARGET)
+endif
 ifndef NOSTRIP
 	$(STRIP) $(STRIPOPT) $(TARGET)
 endif
