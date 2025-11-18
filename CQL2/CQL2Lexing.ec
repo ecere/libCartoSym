@@ -396,10 +396,11 @@ public class CQL2Lexer
                         CQL2CodePosition np { pos.line, pos.col + 1, pos.pos + 1 };
                         while(*n == ' ' || *n == '\t' || *n == '\r' || *n == '\n')
                         {
-                           if(*n == '\r');
+                           if(*n == '\r')
+                              pos.pos++, np.pos++;
                            else if(*n == '\n') np.line++, np.col = 0;
                            else
-                              np.col++, np.pos++, pos.col++;
+                              np.col++, np.pos++, pos.col++, pos.pos++;
                            n++;
                         }
                         if(*n == '\'')
