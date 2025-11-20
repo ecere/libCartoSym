@@ -43,7 +43,11 @@ public double computeEuclideanArea(int count, const Pointd * p)
 
    // TODO: Implement Kahan / Neumaier summation -- https://en.wikipedia.org/wiki/Kahan_summation_algorithm
 #if !defined(__EMSCRIPTEN__) && !defined(__ANDROID__) && !defined(__UWP__) && !defined(__APPLE__)
+#if defined(__AARCH64EB__) || defined(__AARCH64EL__) || defined(__ARMEB__) || defined(__ARMEL__)
+   #define AREA_DBLTYPE double // _Float128 TODO: eC compiler does not yet recognize _Float128
+#else
    #define AREA_DBLTYPE __float128
+#endif
 #else
    #define AREA_DBLTYPE double
 #endif
