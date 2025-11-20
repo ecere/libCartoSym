@@ -397,6 +397,8 @@ public:
          delete e;
       return e;
    }
+
+   public virtual void toCQL2JSON(FieldValue json) { json = { type = { nil } }; };
 }
 
 public class CQL2ExpList : CQL2List<CQL2Expression>
@@ -731,6 +733,14 @@ public:
       return ExpFlags { resolved = true };
    }
 
+   void toCQL2JSON(FieldValue json)
+   {
+      // FIXME: json.OnCopy(constant);
+      json = constant;
+
+      // TODO: Units
+   }
+
    ~CQL2ExpConstant()
    {
       if(constant.type.mustFree == true && constant.type.type == text )
@@ -784,6 +794,11 @@ public:
    {
       CQL2ExpString e { string = CopyString(string), expType = expType, destType = destType };
       return e;
+   }
+
+   void toCQL2JSON(FieldValue json)
+   {
+      json = FieldValue { type = { text, mustFree = true }, s = string };
    }
 
    ~CQL2ExpString()
@@ -898,6 +913,14 @@ public:
    CQL2ExpIdentifier()
    {
       fieldID = -1;
+   }
+
+   void toCQL2JSON(FieldValue json)
+   {
+      Map<String, FieldValue> m { };
+      String idString = CopyString(identifier ? identifier.string : null);
+      json = { type = { map }, m = m };
+      m["property"] = FieldValue { type = { text, mustFree = true }, s = idString };
    }
 
    ~CQL2ExpIdentifier()
@@ -1247,6 +1270,71 @@ public:
       delete exp1;
       delete exp2;
    }
+
+   void toCQL2JSON(FieldValue json)
+   {
+      CQL2TokenType op = this.op;
+      CQL2ExpIdentifier exp2Id = exp2 && exp2._class == class(CQL2ExpIdentifier) ?
+         (CQL2ExpIdentifier) exp2 : null;
+      bool exp2IsNull = exp2Id && exp2Id.identifier && exp2Id.identifier.string &&
+               !strcmpi(exp2Id.identifier.string, "null");
+      Map<String, FieldValue> m { };
+      Array<FieldValue> args { };
+      const String opString = null;
+
+      json = { type = { map }, m = m };
+
+      if((op == notEqual && exp2IsNull) || op == notLike || op == notBetween)
+      {
+         // There are no direct NOT operators for these
+         m["op"] = FieldValue { type = { text }, s = (void *)(String)"not" };
+         m["args" ] = FieldValue { type = { array }, a = args };
+
+         op = (op == notEqual) ? equal : (op == notLike) ? like : between;
+         m = { };
+         args.Add({ type = { map }, m = m });
+         args = { };
+      }
+
+      switch(op)
+      {
+         case equal: opString = exp2IsNull ? "isNull" : "="; break;
+         case smaller:  opString = "<"; break;
+         case greater:  opString = ">"; break;
+         case plus:     opString = "+"; break;
+         case minus:    opString = "-"; break;
+         case multiply: opString = "*"; break;
+         case divide:   opString = "/"; break;
+         // TOOD: Handle between conversion here
+         case smallerEqual: opString = "<="; break;
+         case greaterEqual: opString = ">="; break;
+         case is:           opString = "is"; break;
+         case notEqual:     opString = "<>"; break;
+         case not:          opString = "not"; break;
+         case and:          opString = "and"; break;
+         case or:           opString = "or"; break;
+         case in:           opString = "in"; break;
+         case intDivide:    opString = "div"; break;
+         case like:         opString = "like"; break;
+         case between:      opString = "between"; break;
+         case power:        opString = "^"; break;
+      }
+      m["op"] = FieldValue { type = { text }, s = (void *)(String)opString };
+      m["args" ] = FieldValue { type = { array }, a = args };
+
+      if(exp1)
+      {
+         FieldValue a { };
+         exp1.toCQL2JSON(a);
+         args.Add(a);
+      }
+      if(exp2 && !exp2IsNull)
+      {
+         FieldValue a { };
+         exp2.toCQL2JSON(a);
+         args.Add(a);
+      }
+   }
 }
 
 public class CQL2ExpBrackets : CQL2Expression
@@ -1281,6 +1369,18 @@ public:
    CQL2ExpBrackets copy()
    {
       return CQL2ExpBrackets { list = list.copy(), expType = expType, destType = destType };
+   }
+
+   void toCQL2JSON(FieldValue json)
+   {
+      json = { type = { nil } };
+      if(list)
+      {
+         Iterator<CQL2Expression> last { container = list, pointer = list.GetLast() };
+         CQL2Expression lastExp = last.data;
+         if(lastExp)
+            lastExp.toCQL2JSON(json);
+      }
    }
 
    ~CQL2ExpBrackets()
@@ -1625,6 +1725,114 @@ public:
       return exp;
    }
 
+   static bool ::readGeometryFromCQL2(Geometry geometry, CQL2Expression cql2)
+   {
+      bool result = false;
+
+      if(cql2)
+      {
+         CQL2Expression iCQL2 = convertToInternalCQL2(cql2);
+         if(iCQL2)
+         {
+            FieldValue val { };
+            CQL2Evaluator evaluator { class(CQL2Evaluator) };
+
+            iCQL2.compute(val, evaluator, preprocessing, null);
+            iCQL2.compute(val, evaluator, runtime, null);
+
+            if(val.type.type == blob && val.b)
+            {
+               /*const */Geometry * g = val.b;
+
+               if(g->type != none)
+               {
+                  bool owned = g->subElementsOwned;
+                  g->subElementsOwned = true;
+                  geometry.OnCopy(g);
+                  g->subElementsOwned = owned;
+
+                  result = true;
+               }
+            }
+            delete iCQL2;
+         }
+      }
+      return result;
+   }
+
+   void toCQL2JSON(FieldValue json)
+   {
+      CQL2ExpIdentifier expId = exp && exp._class == class(CQL2ExpIdentifier) ?
+         (CQL2ExpIdentifier) exp : null;
+      const String expIdString = expId && expId.identifier ? expId.identifier.string : null;
+      if(expIdString && (
+         !strcmpi(expIdString, "POLYGON") ||
+         !strcmpi(expIdString, "MULTIPOLYGON") ||
+         !strcmpi(expIdString, "LINESTRING") ||
+         !strcmpi(expIdString, "MULTILINGSTRING") ||
+         !strcmpi(expIdString, "POINT") ||
+         !strcmpi(expIdString, "MULTIPOINT") ||
+         !strcmpi(expIdString, "GEOMETRYCOLLECTION") ||
+         !strcmpi(expIdString, "BBOX")))
+      {
+         Geometry geometry { };
+         TempFile f { };
+         JSONParser parser { f = f };
+         FieldValue fv;
+
+         readGeometryFromCQL2(geometry, this);
+
+         writeGeoJSONGeometry(f, geometry, 0, 0);
+         f.Seek(0, start);
+
+         if(parser.GetObject(class(FieldValue), (void **)&fv) != success)
+            fv = { type = { nil } };
+
+         json = fv;
+
+         geometry.OnFree();
+         delete f;
+         delete parser;
+      }
+      else
+      {
+         String idString = CopyString(expIdString);
+         Map<String, FieldValue> m { };
+         Array<FieldValue> args { };
+
+         json = { type = { map }, m = m };
+
+         if(idString)
+         {
+            // Automatically converting to lower case for CQL2-JSON
+            // It is not clear whether CQL2-Text allows both lowercase and uppercase
+            if(!strcmpi(idString, "casei") ||
+               !strcmpi(idString, "accenti") ||
+               SearchString(idString, 0, "s_", false, false) == idString ||
+               SearchString(idString, 0, "t_", false, false) == idString ||
+               SearchString(idString, 0, "a_", false, false) == idString)
+               strlwr(idString);
+         }
+
+         // TODO: Handle pow() conversion
+
+         m["op"] = FieldValue { type = { text, mustFree = true }, s = idString };
+         m["args" ] = FieldValue { type = { array }, a = args };
+
+         if(arguments)
+         {
+            for(arg : arguments)
+            {
+               CQL2Expression argument = arg;
+               FieldValue a { };
+
+               argument.toCQL2JSON(a);
+               args.Add(a);
+            }
+         }
+      }
+   }
+
    ~CQL2ExpCall()
    {
       delete exp;
@@ -1849,6 +2057,27 @@ public:
          // if(!resolved) flags.resolved = false;
          flags.resolved = false;
       return flags;
+   }
+
+   void toCQL2JSON(FieldValue json)
+   {
+      Array<FieldValue> array { };
+
+      if(elements)
+      {
+         Iterator<CQL2Expression> it { container = elements };
+         int i = 0;
+
+         array.size = elements.GetCount();
+         while(it.Next())
+         {
+            CQL2Expression e = it.data;
+
+            e.toCQL2JSON(array[i]);
+            i++;
+         }
+      }
+      json = { type = { FieldType::array }, a = array };
    }
 
    ~CQL2ExpArray()
@@ -2143,6 +2372,48 @@ public:
          }
       }
       return result;
+   }
+
+   void toCQL2JSON(FieldValue json)
+   {
+      if(instance)
+      {
+         const String name = instance._class ? instance._class.name : null;
+         String idString = CopyString(name);
+         Map<String, FieldValue> m { };
+         Array<FieldValue> args { };
+
+         json = { type = { map }, m = m };
+
+         m["op"] = FieldValue { type = { text, mustFree = true }, s = idString };
+         m["args" ] = FieldValue { type = { array }, a = args };
+
+         if(instance.members)
+         {
+            for(m : instance.members)
+            {
+               CQL2MemberInitList initList = m;
+
+               if(initList)
+               {
+                  for(mm : initList)
+                  {
+                     // TODO: Full instance support for CartoSym
+                     CQL2MemberInit init = mm;
+                     if(init.initializer)
+                     {
+                        FieldValue a { };
+
+                        init.initializer.toCQL2JSON(a);
+                        args.Add(a);
+                     }
+                  }
+               }
+            }
+         }
+      }
+      else
+         json = { type = { nil } };
    }
 
    ~CQL2ExpInstance()

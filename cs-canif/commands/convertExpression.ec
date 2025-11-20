@@ -65,18 +65,20 @@ CQL2Expression readCQL2JSON(const String fileName)
 bool writeCQL2JSON(CQL2Expression e, const String fileName)
 {
    bool result = false;
-   PrintLn("CQL2-JSON expression output not yet implemented");
-   /*
+   //PrintLn("CQL2-JSON expression output not yet implemented");
+
    File f = FileOpen(fileName, write);
    if(f)
    {
       FieldValue json { };
-      e.toCQL2JSON(json);
-      result = WriteJSONObject(f, class(Fieldvalue), json, 0);
+
+      //CQL2Expression n = normalizeCQL2(e);
+      e /*n*/.toCQL2JSON(json);
+      //delete n;
+      result = WriteJSONObject(f, class(FieldValue), json, 0);
       json.OnFree();
       delete f;
    }
-   */
    return result;
 }
 

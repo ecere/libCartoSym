@@ -91,13 +91,13 @@ public CQL2Expression normalizeCQL2(CQL2Expression c)
                   if(ci)
                      expOp.exp2 = CQL2ExpCall
                      {
-                        exp = CQL2ExpIdentifier { identifier = { string = CopyString("CASEI") } },
+                        exp = CQL2ExpIdentifier { identifier = { string = CopyString("casei") } },
                         arguments = { [ expOp.exp2 ] }
                      };
                   if(ai)
                      expOp.exp2 = CQL2ExpCall
                      {
-                        exp = CQL2ExpIdentifier { identifier = { string = CopyString("ACCENTI") } },
+                        exp = CQL2ExpIdentifier { identifier = { string = CopyString("accenti") } },
                         arguments = { [ expOp.exp2 ] }
                      };
                }
