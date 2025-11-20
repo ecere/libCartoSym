@@ -142,9 +142,9 @@ LIBS += \
 	$(call _L,GeoExtents)
 
 ifdef OSX_TARGET
-OFLAGS += $(if $(ENABLE_PYTHON_RPATHS),-Wl$(comma)-rpath$(comma)'@executable_path/../lib' -Wl$(comma)-rpath$(comma)'@executable_path/../../ecrt/lib',)
+OFLAGS += $(if $(ENABLE_PYTHON_RPATHS),-Wl$(comma)-rpath$(comma)'@executable_path/../lib' -Wl$(comma)-rpath$(comma)'@executable_path/../../ecrt/lib' -Wl$(comma)-rpath$(comma)'@executable_path/../../cscql2/lib',)
 else
-OFLAGS += $(if $(ENABLE_PYTHON_RPATHS),-Wl$(comma)-rpath='$$ORIGIN/../lib:$$ORIGIN/../../ecrt/lib',)
+OFLAGS += $(if $(ENABLE_PYTHON_RPATHS),-Wl$(comma)-rpath='$$ORIGIN/../lib:$$ORIGIN/../../ecrt/lib:$$ORIGIN/../../cscql2/lib',)
 endif
 
 PRJ_CFLAGS += \
