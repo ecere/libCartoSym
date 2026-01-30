@@ -2290,12 +2290,15 @@ public:
                         String s = id ? id.string : null;
                         Color col = (Color)value.i;
                         flags |= exp.compute(val, evaluator, runtime, instClass);
-                        if(!strcmp(s, "r"))
-                           col.r = (byte)Min(Max(val.i,0),255);
-                        else if(!strcmp(s, "g"))
-                           col.g = (byte)Min(Max(val.i,0),255);
-                        else if(!strcmp(s, "b"))
-                           col.b = (byte)Min(Max(val.i,0),255);
+                        if(s)
+                        {
+                           if(!strcmp(s, "r"))
+                              col.r = (byte)Min(Max(val.i,0),255);
+                           else if(!strcmp(s, "g"))
+                              col.g = (byte)Min(Max(val.i,0),255);
+                           else if(!strcmp(s, "b"))
+                              col.b = (byte)Min(Max(val.i,0),255);
+                        }
                         value.i = col;
                      }
                      else

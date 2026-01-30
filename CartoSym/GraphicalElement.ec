@@ -390,6 +390,10 @@ public:
    }
 }
 
+public class Circle : Ellipse
+{
+}
+
 public class Ellipse : Shape
 {
    Pointf center;
