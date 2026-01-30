@@ -90,7 +90,8 @@ _ECSOURCES = \
 	CartoSymbolizer.ec \
 	CartoSymTools.ec \
 	GraphicalElement.ec \
-	GraphicalSymbolizer.ec
+	GraphicalSymbolizer.ec \
+	CartoSymJSON.ec
 
 ECSOURCES = $(call shwspace,$(_ECSOURCES))
 
@@ -217,6 +218,9 @@ $(OBJ)GraphicalElement.sym: GraphicalElement.ec
 $(OBJ)GraphicalSymbolizer.sym: GraphicalSymbolizer.ec
 	$(ECP) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) -c $(call quote_path,GraphicalSymbolizer.ec) -o $(call quote_path,$@)
 
+$(OBJ)CartoSymJSON.sym: CartoSymJSON.ec
+	$(ECP) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) -c $(call quote_path,CartoSymJSON.ec) -o $(call quote_path,$@)
+
 # C OBJECT RULES
 
 $(OBJ)CartoStyle.c: CartoStyle.ec $(OBJ)CartoStyle.sym | $(SYMBOLS)
@@ -234,6 +238,9 @@ $(OBJ)GraphicalElement.c: GraphicalElement.ec $(OBJ)GraphicalElement.sym | $(SYM
 $(OBJ)GraphicalSymbolizer.c: GraphicalSymbolizer.ec $(OBJ)GraphicalSymbolizer.sym | $(SYMBOLS)
 	$(ECC) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) $(FVISIBILITY) -c $(call quote_path,GraphicalSymbolizer.ec) -o $(call quote_path,$@) -symbols $(OBJ)
 
+$(OBJ)CartoSymJSON.c: CartoSymJSON.ec $(OBJ)CartoSymJSON.sym | $(SYMBOLS)
+	$(ECC) $(CFLAGS) $(CECFLAGS) $(ECFLAGS) $(PRJ_CFLAGS) $(FVISIBILITY) -c $(call quote_path,CartoSymJSON.ec) -o $(call quote_path,$@) -symbols $(OBJ)
+
 # OBJECT RULES
 
 $(OBJ)CartoStyle$(O): $(OBJ)CartoStyle.c
@@ -250,6 +257,9 @@ $(OBJ)GraphicalElement$(O): $(OBJ)GraphicalElement.c
 
 $(OBJ)GraphicalSymbolizer$(O): $(OBJ)GraphicalSymbolizer.c
 	$(CC) $(CFLAGS) $(PRJ_CFLAGS) $(FVISIBILITY) -c $(call quote_path,$(OBJ)GraphicalSymbolizer.c) -o $(call quote_path,$@)
+
+$(OBJ)CartoSymJSON$(O): $(OBJ)CartoSymJSON.c
+	$(CC) $(CFLAGS) $(PRJ_CFLAGS) $(FVISIBILITY) -c $(call quote_path,$(OBJ)CartoSymJSON.c) -o $(call quote_path,$@)
 
 $(OBJ)$(MODULE).main$(O): $(OBJ)$(MODULE).main.c
 	$(CC) $(CFLAGS) $(PRJ_CFLAGS) $(FVISIBILITY) -c $(OBJ)$(MODULE).main.c -o $(call quote_path,$@)
