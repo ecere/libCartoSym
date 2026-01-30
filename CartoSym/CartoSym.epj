@@ -38,7 +38,8 @@
       "CartoSymbolizer.ec",
       "CartoSymTools.ec",
       "GraphicalElement.ec",
-      "GraphicalSymbolizer.ec"
+      "GraphicalSymbolizer.ec",
+      "CartoSymJSON.ec"
    ],
    "ResourcesPath" : "",
    "Resources" : [

@@ -915,12 +915,38 @@ public:
       fieldID = -1;
    }
 
+   // REVIEW: How to identify enum values (we would need dest type to resolve here)? Are they allowed unquoted in CartoSym-CSS?
+   static bool isEnumValue(const String s)
+   {
+      if(!strcmp(s, "coverage") || !strcmp(s, "vector"))
+         return true;
+      return false;
+   }
+
+   static bool isSysId(const String s)
+   {
+           if(strstr(s, "dataLayer") == s) return true;
+      else if(strstr(s, "viz") == s) return true;
+      return false;
+   }
+
    void toCQL2JSON(FieldValue json)
    {
-      Map<String, FieldValue> m { };
       String idString = CopyString(identifier ? identifier.string : null);
-      json = { type = { map }, m = m };
-      m["property"] = FieldValue { type = { text, mustFree = true }, s = idString };
+
+      if(idString && !strcmpi(idString, "true"))
+         json = { type = { integer, format = boolean }, i = 1 };
+      else if(idString && !strcmpi(idString, "false"))
+         json = { type = { integer, format = boolean }, i = 0 };
+      else if(isEnumValue(idString))
+         json = FieldValue { type = { text, mustFree = true }, s = idString };
+      else
+      {
+         Map<String, FieldValue> m { };
+         json = { type = { map }, m = m };
+
+         m[isSysId(idString) ? "sysId" : "property"] = FieldValue { type = { text, mustFree = true }, s = idString };
+      }
    }
 
    ~CQL2ExpIdentifier()
@@ -2067,11 +2093,22 @@ public:
       {
          Iterator<CQL2Expression> it { container = elements };
          int i = 0;
+         Class elType = null;
+         if(destType && eClass_IsDerived(destType, class(Container)))
+         {
+            ClassTemplateArgument arg = destType.templateArgs[0];
+            elType = arg.dataTypeClass;
+            if(!elType && arg.dataTypeString)
+               elType = arg.dataTypeClass = eSystem_FindClass(destType.module, arg.dataTypeString);
+         }
 
          array.size = elements.GetCount();
          while(it.Next())
          {
             CQL2Expression e = it.data;
+
+            if(elType)
+               e.destType = elType;
 
             e.toCQL2JSON(array[i]);
             i++;
@@ -2379,33 +2416,83 @@ public:
       if(instance)
       {
          const String name = instance._class ? instance._class.name : null;
-         String idString = CopyString(name);
-         Map<String, FieldValue> m { };
-         Array<FieldValue> args { };
+         bool isArray = false;
 
-         json = { type = { map }, m = m };
+         if(destType &&
+            (!strcmp(destType, "ValueColor") ||
+             !strcmp(destType, "Color") ||
+             !strcmp(destType, "GeoPoint")))
+             isArray = true;
 
-         m["op"] = FieldValue { type = { text, mustFree = true }, s = idString };
-         m["args" ] = FieldValue { type = { array }, a = args };
-
-         if(instance.members)
          {
-            for(m : instance.members)
+            Map<String, FieldValue> map = null;
+            Array<FieldValue> args = null;
+            bool isValueColor = isArray && !strcmp(destType, "ValueColor");
+
+            if(name && !isArray)
             {
-               CQL2MemberInitList initList = m;
+               map = { };
+               args = { };
+               json = { type = { FieldType::map }, m = map };
+               map["op"] = FieldValue { type = { text, mustFree = true }, s = CopyString(name) };
+               map["args" ] = FieldValue { type = { array }, a = args };
+            }
+            else if(!isArray)
+            {
+               map = { };
+               json = { type = { FieldType::map }, m = map };
+            }
+            else
+            {
+               args = { };
+               json = { type = { array }, a = args };
+            }
 
-               if(initList)
+            if(instance.members)
+            {
+               for(m : instance.members)
                {
-                  for(mm : initList)
-                  {
-                     // TODO: Full instance support for CartoSym
-                     CQL2MemberInit init = mm;
-                     if(init.initializer)
-                     {
-                        FieldValue a { };
+                  CQL2MemberInitList initList = m;
 
-                        init.initializer.toCQL2JSON(a);
-                        args.Add(a);
+                  if(initList)
+                  {
+                     for(mm : initList)
+                     {
+                        // TODO: Full instance support for CartoSym
+                        CQL2MemberInit init = mm;
+                        CQL2Expression k = init.lhValue;
+
+                        if(init.initializer)
+                        {
+                           FieldValue a { };
+
+                           init.initializer.toCQL2JSON(a);
+
+                           if(args)
+                           {
+                              args.Add(a);
+
+                              // REVIEW: Special handling of ValueColor which is currently used as a single tuple in CartoSym-CSS input
+                              if(isValueColor)
+                              {
+                                 Array<FieldValue> colorArgs { };
+                                 args.Add({ type = { array }, a = colorArgs });
+                                 args = colorArgs;
+                                 isValueColor = false;
+                              }
+                           }
+                           else
+                           {
+                              const String s = null;
+                              if(k && k._class == class(CQL2ExpIdentifier))
+                              {
+                                 CQL2ExpIdentifier expId = (CQL2ExpIdentifier)k;
+                                 s = expId.identifier ? expId.identifier.string : null;
+                              }
+                              if(s)
+                                 map[s] = a;
+                           }
+                        }
                      }
                   }
                }

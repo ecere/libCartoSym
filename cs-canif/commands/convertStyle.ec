@@ -27,12 +27,7 @@ bool convertStyle(
       outType = outExt;
    }
 
-   if(!strcmpi(outType, "csjson"))
-   {
-      PrintLn($"CartoSym-JSON output not yet implemented");
-      return false;
-   }
-   else if(strcmpi(outType, "cscss") && strcmpi(outType, "json")
+   if(strcmpi(outType, "cscss") && strcmpi(outType, "json") && strcmpi(outType, "csjson")
       && strcmpi(outType, "mbgl") && strcmpi(outType, "sld"))
    {
       PrintLn($"Unrecognized style output format");
@@ -91,6 +86,13 @@ bool convertStyle(
                result = true;
             else
                PrintLn($"Failed to write style as CartoSym-CSS");
+         }
+         else if(!strcmpi(outType, "csjson"))
+         {
+            if(writeCSJSON(style, outputFile))
+               result = true;
+            else
+               PrintLn($"Failed to write style as CartoSym-JSON");
          }
          else if(!strcmpi(outType, "sld"))
          {
