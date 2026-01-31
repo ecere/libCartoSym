@@ -3103,7 +3103,7 @@ static CQL2Expression convertOperationExp(CQL2TokenType operator, Array<MBGLFilt
             else
                result = CQL2ExpOperation { op = operator, exp2 = ne };
          }
-         else if(operator == in) //|| !strcmp(op, "none"))
+         else if(operator == in || operator == notIn) //|| !strcmp(op, "none"))
          {
             // This is using "in" directly in JSON style(rather than match)
             // FIXME: Use of result here for intermediate results as part of loop is really confusing
@@ -3381,6 +3381,7 @@ static Map<String, CQL2TokenType> mbTokens
    { "any", or },
    { "or", or },
    { "in", in },
+   { "!in", notIn },
    { "!", not },
    { "none", not } //TODO: This is actually NOR, more than one expression on right side should be ORed
 ] };
