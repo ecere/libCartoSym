@@ -11,10 +11,17 @@ public:
 
 class CSJSONStylingRule
 {
-public:
    FieldValue selector;
+public:
    CSJSONSymbolizer symbolizer;
    List<CSJSONStylingRule> nestedRules;
+
+   property FieldValue selector
+   {
+      isset { return selector.type.type != 0; }
+      get { value = selector; }
+      set { selector = value; }
+   }
 }
 
 class CSJSONMetadata
