@@ -441,7 +441,7 @@ private:
       layer.paint.textcolor = { type = { text, mustFree = true }, s = colorToHex(font ? (Color)font.color : black) };
 
       (&layer.paint.texthalocolor)->OnFree();
-      *&layer.paint.texthalocolor = colorToHex(font ? (Color)font.outline.color : white);
+      *&layer.paint.texthalocolor = MBGLFilterValue { type = { text, mustFree = true }, s = colorToHex(font ? (Color)font.outline.color : white) };
 
 
       if(font && font.size > 0)
@@ -462,7 +462,12 @@ private:
       {
          double fontSize = layer.layout.textsize.r;
          double empp = 72.0 / (fontSize * 96.0);
-         layer.layout.textoffset = { [ (float)(x * empp), (float)(y * empp) ] };
+         layer.layout.textoffset = MBGLFilterValue {
+            type = { array }, a = Array<FieldValue> { [
+               FieldValue { type = { real }, r = x * empp },
+               FieldValue { type = { real }, r = y * empp }
+            ] }
+         };
       }
 
       if(al != { center, middle })

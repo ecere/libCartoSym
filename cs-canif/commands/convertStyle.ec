@@ -54,6 +54,8 @@ bool convertStyle(
             PrintLn($"Failed to parse ", inputFile, $" as Mapbox GL / MapLibre style");
          delete f;
       }
+      else
+         PrintLn($"Failure to open ", inputFile);
    }
    else if(!strcmpi(inType, "sld"))
    {

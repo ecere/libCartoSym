@@ -76,7 +76,7 @@ public class CSCanif : Application
 
       typeMap = { [
          { "ne_10m_populated_places", { type = vector, vectorType = points } },
-          { "Simple Point", { type = vector, vectorType = points } }
+         { "Simple Point", { type = vector, vectorType = points } }
       ] };
 
       for(a = 1; !syntaxError && a < argc; a++)

@@ -306,10 +306,10 @@ private:
          MBGLLayoutJSONData layout = this.layout;
 
          // NOTE: These were handled from the wrong place... just in case to import bad files -- Do we still need this? We should probably use OnCopy()?
-         if(layout && layout.textcolor.type.type != nil && (paint && paint.textcolor.type.type == nil)) paint.textcolor = layout.textcolor;
-         if(layout && layout.texthalowidth.type.type != nil && (paint && paint.texthalowidth.type.type == nil)) paint.texthalowidth = layout.texthalowidth;
-         if(layout && layout.texthaloblur && !paint.texthaloblur) paint.texthaloblur = layout.texthaloblur;
-         if(layout && layout.texthalocolor && !paint.texthalocolor) paint.texthalocolor = layout.texthalocolor;
+         if(layout && *&layout.textcolor.type.type != nil && (paint && *&paint.textcolor.type.type == nil)) paint.textcolor = layout.textcolor;
+         if(layout && *&layout.texthalowidth.type.type != nil && (paint && *&paint.texthalowidth.type.type == nil)) paint.texthalowidth = layout.texthalowidth;
+         if(layout && *&layout.texthaloblur && !*&paint.texthaloblur) paint.texthaloblur = layout.texthaloblur;
+         if(layout && *&layout.texthalocolor.type != 0 && *&layout.texthalocolor.type.type != nil) paint.texthalocolor = layout.texthalocolor;
 
          if(!strcmpi(type, "fill"))
             processFill(rule);
@@ -352,20 +352,24 @@ private:
             if(fillOpacityExp)
                instance.setMember("opacity", fillOpacity, true, fillOpacityExp);
          }
-         if(paint.fillpattern)
+         if(paint.fillpattern.type.type != nil && paint.fillpattern.type.type != 0)
          {
             //NOTE: paint.fillpattern not yet supported -- fall back to 50% opacity and some default fil colors
             instance.setMember("opacity", fillOpacity, true, CQL2ExpConstant { constant = { { real }, r = 0.5 } });
             if(!fillColorExp)
             {
                Color color = white;
-                    if(strstr(paint.fillpattern, "grassland")) color = 0xB0E8BE;
-               else if(strstr(paint.fillpattern, "sand"))      color = 0xCEC9BC;
-               else if(strstr(paint.fillpattern, "drainage"))  color = 0x366708;
-               else if(strstr(paint.fillpattern, "glacier"))   color = 0xB0EEF0;
-               else if(strstr(paint.fillpattern, "marsh"))     color = 0x758F61;
-               else if(strstr(paint.fillpattern, "swamp"))     color = 0x6D7344;
-               fillColorExp = CQL2ExpConstant { constant = { { integer, format = FieldValueFormat::color }, color } };
+               if(paint.fillpattern.type.type == text)
+               {
+                  const String pattern = paint.fillpattern.s;
+                       if(strstr(pattern, "grassland")) color = 0xB0E8BE;
+                  else if(strstr(pattern, "sand"))      color = 0xCEC9BC;
+                  else if(strstr(pattern, "drainage"))  color = 0x366708;
+                  else if(strstr(pattern, "glacier"))   color = 0xB0EEF0;
+                  else if(strstr(pattern, "marsh"))     color = 0x758F61;
+                  else if(strstr(pattern, "swamp"))     color = 0x6D7344;
+                  fillColorExp = CQL2ExpConstant { constant = { { integer, format = FieldValueFormat::color }, color } };
+               }
             }
          }
 
@@ -723,12 +727,14 @@ private:
       MBGLPaintJSONData paint = this.paint;
 
       // Outline
-      if(paint.texthaloblur || paint.texthalocolor || paint.texthalowidth.type.type != nil)
+      if(paint.texthaloblur ||
+         (paint.texthalocolor.type.type != 0 && paint.texthalocolor.type.type != nil) ||
+         (paint.texthalowidth.type.type != 0 && paint.texthalowidth.type.type != nil))
       {
          CQL2Expression size = paint.texthalowidth.type.type != nil ?
             convertMBGLExp(paint.texthalowidth, false, false, none) : null;
-         CQL2Expression color = paint.texthalocolor ?
-            getColorHexConstant(removeDoubleQuotesOrBrackets(paint.texthalocolor), hex) : null;
+         CQL2Expression color = paint.texthalocolor.type.type == text ?
+            getColorHexConstant(removeDoubleQuotesOrBrackets(paint.texthalocolor.s), hex) : null;
 
          outline = { };
          // REVIEW: CQL2Expression fadeExp = paint.texthaloblur ? convertMBGLExp(paint.texthaloblur, false, false, none) : null;
@@ -1042,12 +1048,15 @@ private:
    {
       // Text position offset from text-offset
       // This is not deprecated, it's a valid option, but text-radial-offset takes priority
-      *textOffsetX = layout.textoffset[0] ?
+      *textOffsetX = layout.textoffset.type.type == array && layout.textoffset.a.count > 0 &&
+         (layout.textoffset.a[0].type.type != nil && layout.textoffset.a[0].type.type != 0) ?
          CQL2ExpOperation {
-            exp1 = CQL2ExpConstant { constant = { { real }, r = layout.textoffset[0] } },
+            exp1 = convertMBGLExp(((MBGLFilterValue *)layout.textoffset.a)[0], false, false, none),
             op = multiply, exp2 = textSizeExp.copy() } : null;
-      *textOffsetY = layout.textoffset[1] ? CQL2ExpOperation {
-            exp1 = CQL2ExpConstant { constant = { { real }, r = layout.textoffset[1] } },
+      *textOffsetY = layout.textoffset.type.type == array && layout.textoffset.a.count > 1 &&
+         (layout.textoffset.a[1].type.type != nil && layout.textoffset.a[1].type.type != 0) ?
+         CQL2ExpOperation {
+            exp1 = convertMBGLExp(((MBGLFilterValue *)layout.textoffset.a)[1], false, false, none),
             op = multiply, exp2 = textSizeExp.copy() } : null;
    }
 
@@ -1061,7 +1070,8 @@ private:
       bool useIconOffset = symbolExp && symbolSizes &&
          ((alignment.horzAlign == unset || (alignment.horzAlign != center && imageHotSpot.x != (alignment.horzAlign == left ? 1 : 0))) ||
           (alignment.vertAlign == unset || (alignment.vertAlign != middle && imageHotSpot.y != (alignment.vertAlign == top ? 1 : 0))));
-      bool useTextOffset = radialOffset ? (alignment != { center, middle }) : layout.textoffset != null;
+      bool useTextOffset = radialOffset ? (alignment != { center, middle }) :
+         (layout.textoffset.type.type != nil && layout.textoffset.type.type != 0);
       if(useIconOffset || useTextOffset)
       {
          int dirX = 0, dirY = 0; // This is the direction away from the text anchor point based on alignment
@@ -1541,12 +1551,11 @@ public:
       get { value = textjustify; }
       isset { return textjustify.type.type != nil && textjustify.type.type != 0; }
    };
-   property Array<double> textoffset
+   property MBGLFilterValue textoffset
    {
-      set { delete textoffset; if(value) textoffset = { copySrc = value }; }
-      get { return textoffset; }
-      isset { return textoffset != null; }
-      //isset { return textoffset.type.type != nil && textoffset.type.type != 0; }
+      set { textoffset = value; }
+      get { value = textoffset; }
+      isset { return textoffset.type.type != nil && textoffset.type.type != 0; }
    };
    // string vs enum? https://github.com/mapbox/mapbox-gl-js/issues/5577
    property MBGLFilterValue textanchor
@@ -1576,11 +1585,11 @@ public:
       get { value = texthalowidth; }
       isset { return texthalowidth.type.type != nil && texthalowidth.type.type != 0; }
    };
-   property String texthalocolor
+   property MBGLFilterValue texthalocolor
    {
-      set { delete texthalocolor; if(value) texthalocolor = CopyString(value); }
-      get { return this ? texthalocolor : null; }
-      isset { return texthalocolor != null; } // false?
+      set { texthalocolor = value; }
+      get { value = texthalocolor; }
+      isset { return texthalocolor.type.type != nil && texthalocolor.type.type != 0; }
    };
    property double texthaloblur
    {
@@ -1731,6 +1740,20 @@ public:
       isset { return textpitchalignment.type.type != nil && textpitchalignment.type.type != 0; }
    }
 
+   property MBGLFilterValue textpadding
+   {
+      set { textpadding = value; }
+      get { value = textpadding; }
+      isset { return textpadding.type.type != nil && textpadding.type.type != 0; }
+   };
+
+   property MBGLFilterValue textrotate
+   {
+      set { textrotate = value; }
+      get { value = textrotate; }
+      isset { return textrotate.type.type != nil && textrotate.type.type != 0; }
+   };
+
 private:
 
    ~MBGLLayoutJSONData()
@@ -1742,13 +1765,13 @@ private:
       textfont.OnFree();
       textsize.OnFree();
       textjustify.OnFree();
-      delete textoffset;
+      textoffset.OnFree();
       textanchor.OnFree();
       textvariableanchor.OnFree();
       textrotationalignment.OnFree();
       linejoin.OnFree();
       textcolor.OnFree();
-      delete texthalocolor;
+      texthalocolor.OnFree();
       texthalowidth.OnFree();
       texttransform.OnFree();
       delete visibility;
@@ -1758,6 +1781,8 @@ private:
       symbolsortkey.OnFree();
       textradialoffset.OnFree();
       textpitchalignment.OnFree();
+      textpadding.OnFree();
+      textrotate.OnFree();
    }
 
    MBGLLayoutJSONData copy()
@@ -1801,7 +1826,7 @@ private:
    MBGLFilterValue textfield;
    MBGLFilterValue textfont;
    MBGLFilterValue textsize;
-   Array<double> textoffset;
+   MBGLFilterValue textoffset;
    MBGLFilterValue textjustify;
    MBGLFilterValue textanchor; //deprecated
    MBGLFilterValue texttransform;
@@ -1813,10 +1838,12 @@ private:
    MBGLFilterValue linesortkey;
    MBGLFilterValue symbolsortkey;
    MBGLFilterValue textpitchalignment;
+   MBGLFilterValue textpadding;
+   MBGLFilterValue textrotate;
 
    // NOTE: These are supposed to go in paint
    MBGLFilterValue textcolor;
-   String texthalocolor;
+   MBGLFilterValue texthalocolor;
    MBGLFilterValue texthalowidth;
    double texthaloblur;
    String visibility;
@@ -1934,11 +1961,11 @@ public:
       get { value = filloutlinecolor; }
       isset { return filloutlinecolor.type.type != nil && filloutlinecolor.type.type != 0; }
    };
-   property String fillpattern
+   property MBGLFilterValue fillpattern
    {
-      set { delete fillpattern; if(value) fillpattern = CopyString(value); }
-      get { return this ? fillpattern : null; }
-      isset { return fillpattern != null; }
+      set { fillpattern = value; }
+      get { value = fillpattern; }
+      isset { return fillpattern.type.type != nil && fillpattern.type.type != 0; }
    };
    property MBGLFilterValue fillopacity
    {
@@ -1982,18 +2009,25 @@ public:
       get { value = textcolor; }
       isset { return textcolor.type.type != nil && textcolor.type.type != 0; }
    };
-   property String texthalocolor
+   property MBGLFilterValue texthalocolor
    {
-      set { delete texthalocolor; if(value) texthalocolor = CopyString(value); }
-      get { return this ? texthalocolor : null; }
-      isset { return texthalocolor != null; }
+      set { texthalocolor = value; }
+      get { value = texthalocolor; }
+      isset { return texthalocolor.type.type != nil && texthalocolor.type.type != 0; }
    };
-   property MBGLFilterValue /*double */texthalowidth
+   property MBGLFilterValue texthalowidth
    {
       set { texthalowidth = value;}
       get { value = texthalowidth; }
       isset { return texthalowidth.type.type != nil && texthalowidth.type.type != 0; } // false?
    };
+   property MBGLFilterValue textopacity
+   {
+      set { textopacity = value;}
+      get { value = textopacity; }
+      isset { return textopacity.type.type != nil && textopacity.type.type != 0; }
+   };
+
    property double texthaloblur
    {
       set { texthaloblur = value; }
@@ -2089,6 +2123,28 @@ public:
       isset { return fillextrusionverticalgradient.type.type != nil && fillextrusionverticalgradient.type.type != 0; }
    }
 
+   // TODO: New properties used in light base map
+   property MBGLFilterValue lineblur
+   {
+      set { lineblur = value; }
+      get { value = lineblur; }
+      isset { return lineblur.type.type != nil && lineblur.type.type != 0; }
+   }
+
+   property MBGLFilterValue lineoffset
+   {
+      set { lineoffset = value; }
+      get { value = lineoffset; }
+      isset { return lineoffset.type.type != nil && lineoffset.type.type != 0; }
+   }
+
+   property MBGLFilterValue filltranslateanchor
+   {
+      set { filltranslateanchor = value; }
+      get { value = filltranslateanchor; }
+      isset { return filltranslateanchor.type.type != nil && filltranslateanchor.type.type != 0; }
+   }
+
 private:
 
    ~MBGLPaintJSONData()
@@ -2105,9 +2161,10 @@ private:
       fillextrusioncolor.OnFree();
       fillextrusionheight.OnFree();
       fillextrusionopacity.OnFree();
-      delete fillpattern;
+      fillpattern.OnFree();;
       textcolor.OnFree();
-      delete texthalocolor;
+      texthalocolor.OnFree();
+      textopacity.OnFree();
       delete texttranslate;
       delete hillshadeilluminationanchor;
       delete hillshadeshadowcolor;
@@ -2119,7 +2176,9 @@ private:
       rastercontrast.OnFree();
       fillextrusionverticalgradient.OnFree();
       iconopacity.OnFree();
-
+      lineblur.OnFree();
+      filltranslateanchor.OnFree();
+      lineoffset.OnFree();
    }
 
    MBGLPaintJSONData copy()
@@ -2179,7 +2238,7 @@ private:
    MBGLFilterValue linecolor; //need to remove quotes
    MBGLFilterValue fillcolor;
    MBGLFilterValue filloutlinecolor;
-   String fillpattern;
+   MBGLFilterValue fillpattern;
    MBGLFilterValue fillopacity;
    MBGLFilterValue fillantialias;
    MBGLFilterValue fillextrusioncolor;
@@ -2187,8 +2246,9 @@ private:
    MBGLFilterValue fillextrusionopacity;
    MBGLFilterValue iconopacity;
    MBGLFilterValue textcolor;
-   String texthalocolor;
+   MBGLFilterValue texthalocolor;
    MBGLFilterValue texthalowidth;
+   MBGLFilterValue textopacity;
    double texthaloblur;
    Array<double> texttranslate;
    MBGLFilterValue rasteropacity;
@@ -2209,6 +2269,9 @@ private:
    MBGLFilterValue circlestrokecolor;
    MBGLFilterValue rastercontrast;
    MBGLFilterValue fillextrusionverticalgradient;
+   MBGLFilterValue lineblur;
+   MBGLFilterValue lineoffset;
+   MBGLFilterValue filltranslateanchor;
 };
 
 static CartoSymEvaluator evaluator { class(CartoSymEvaluator) };
