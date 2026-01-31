@@ -1125,7 +1125,8 @@ private:
    void setupText(CQL2ExpInstance textElements[MAX_TEXT_ELEMENTS], const Pointf imageHotSpot, CQL2Expression symbolExp, Map<String, Size> symbolSizes, StylingRule stylingRule)
    {
       MBGLLayoutJSONData layout = this.layout;
-      CQL2Expression textExp = layout && layout.textfield.type.type != nil ? convertMBGLExp(layout.textfield, false, false, none) : null;
+      CQL2Expression textExp = layout && layout.textfield.type.type != nil && layout.textfield.type.type != 0 ?
+         convertMBGLExp(layout.textfield, false, false, none) : null;
       if(textExp)
       {
          CQL2Expression transformExp = layout.texttransform.type.type != nil ?
@@ -2824,66 +2825,70 @@ static CQL2Expression convertStopsExp(Array<MBGLFilterValue> params)
 {
    CQL2Expression result = null;
    int i;
-   CQL2ExpConditional c { expList = {}};
 
-   for(i = 0; i < params.count; i++)
+   for (i = 0; i < params.count; i++)
    {
-      if(params[i].type.type == array)
+      if (params[i].type.type == array)
       {
-         int j;
-         Array<MBGLFilterValue> ar = (Array<MBGLFilterValue>)params[i].a;
-         for(j = ar.count-1; j>= 0; j--)
+         Array<MBGLFilterValue> pair = (Array<MBGLFilterValue>)params[i].a;
+
+         if (pair.count >= 2)
          {
-            MBGLFilterValue val {};
-            if(ar[j].type.type == array)
+            MBGLFilterValue *zoom = &pair[0], *val  = &pair[1];
+
+            if (val && val->type.type == array)
             {
-               // NOTE: if 'left' is in this list, then pick it, else pick the first element
-               bool foundLeft = false;
-               Array<MBGLFilterValue> anchors = (Array<MBGLFilterValue>)ar[j].a;
-               for(an : anchors)
+               Array<MBGLFilterValue> anchors = (Array<MBGLFilterValue>)val->a;
+               int k;
+               bool picked = false;
+               for (k = 0; k < anchors.count; k++)
                {
-                  if(an.type.type == text && !strcmp(an.s, "left"))
+                  if (anchors[k].type.type == text && !strcmp(anchors[k].s, "left"))
                   {
-                     val.OnCopy(an);
-                     foundLeft = true;
+                     val = &anchors[k];
+                     picked = true;
                      break;
                   }
                }
-               if(!foundLeft)
-                  val.OnCopy(anchors[0]);
+               if (!picked && anchors.count > 0)
+                  val = &anchors[0];
             }
-            else if(i > 0)
-               val.OnCopy(ar[j]);
 
-            if(val.type.type != nil && val.type.type != 0)
+            if (val && val->type.type != nil && val->type.type != 0)
             {
-               CQL2Expression e = convertMBGLExp(val, false, false, none);
-               if(i == 0)
-                  c.expList.Add(e);
-               else if(val.type.type == real || val.type.type == integer)
+               CQL2Expression eVal = convertMBGLExp(val, false, false, none);
+
+               if(eVal)
                {
-                  CQL2ExpOperation expOp { exp1 = newCSScaleExp() };
-                  CQL2Expression sd1 = null;
-                  expOp.op = greater;
-                  sd1 = zoomtoSD(e);
-                  if(sd1)
+                  if(result)
                   {
-                     delete e;
-                     expOp.exp2 = sd1;
+                     if(zoom && (zoom->type.type == real || zoom->type.type == integer))
+                     {
+                        CQL2Expression eZoom = convertMBGLExp(zoom, false, false, none);
+                        if(eZoom)
+                        {
+                           CQL2Expression sd = zoomtoSD(eZoom);
+                           if (sd)
+                              result = CQL2ExpConditional {
+                                 expList = { [ result ] },
+                                 condition = CQL2ExpBrackets { list = { [ CQL2ExpOperation {
+                                       exp1 = newCSScaleExp(), op = smaller, exp2 = sd } ] } },
+                                 elseExp = eVal
+                              };
+                           delete eZoom;
+                        }
+                     }
                   }
-                  c.condition = CQL2ExpBrackets { list = { [ (CQL2Expression)expOp ] } };
+                  else
+                     result = eVal;
                }
-               else
-                  c.elseExp = e;
             }
-            if(val.type.type == array)
-               val.a.OnFree();
          }
       }
    }
-   result = c;
    return result;
 }
+
 
 static CQL2Expression convertInterpolateExp(Array<MBGLFilterValue> params, bool implyKey, ColorParseMode colorMode)
 {
@@ -3201,6 +3206,13 @@ static CQL2Expression convertMBGLExp(MBGLFilterValue filter, bool isKey, bool im
    else if(filter.type.type != 0)
       result = CQL2ExpConstant { constant = *(FieldValue *)filter };
 
+   if(!result && filter.type.type != 0)
+   {
+      // PrintLn(filter.type.type);
+      // PrintLn(filter);
+      //convertMBGLExp(filter, isKey, implyKey, colorParseMode);
+      result = CQL2ExpString { string = CopyString("!!unsupported!!") };
+   }
    return result;
 }
 
