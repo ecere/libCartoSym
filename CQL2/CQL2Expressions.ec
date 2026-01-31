@@ -389,8 +389,12 @@ public:
 
    CQL2Expression ::parse(CQL2Lexer lexer)
    {
-      //return CQL2ExpConditional::parse(lexer); // do we want this right now?
-      CQL2Expression e = CQL2ExpOperation::parse(numPrec-1, lexer);
+      CQL2Expression e;
+
+      if(lexer.strictCQL2)
+         e = CQL2ExpOperation::parse(numPrec-1, lexer);
+      else
+         e =  CQL2ExpConditional::parse(lexer);
       if(lexer.type == lexingError ||
          lexer.type == syntaxError ||
          (lexer.nextToken && (lexer.nextToken.type == lexingError || lexer.nextToken.type == syntaxError)))
