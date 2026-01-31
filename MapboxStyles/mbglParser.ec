@@ -3447,15 +3447,14 @@ static CQL2Expression getColorHexConstant(String string, ColorParseMode colorMod
             color.g = (byte)Min(Max(rgb.g,0),255);
             color.b = (byte)Min(Max(rgb.b,0),255);
          }
-         /*else if(string[0] == 'h' && string[1] == 's')
+         else if(string[0] == 'h' && string[1] == 's')
          {
-            //ugly stuff, move a block to a function
-            ColorHSV hsv { };
+            ColorRGB rgb;
             String s = null, v = null;
-            int len;// = strlen(string[3]);
-            Array<String> params = splitCommaValues(removeDoubleQuotesOrBrackets(string[3]));
-            hsv.h = (Degrees)strtod(params[0], null);
-            len = strlen(params[1]);
+            Array<String> params = splitCommaValues(removeDoubleQuotesOrBrackets(string + 3));
+            int len = strlen(params[1]);
+            ColorHSV hsv { h = (Degrees)strtod(params[0], null) };
+
             if(len > 1) len--;
             s = new char[len + 1];
             memcpy(s, params[1], len);
@@ -3467,8 +3466,13 @@ static CQL2Expression getColorHexConstant(String string, ColorParseMode colorMod
             memcpy(v, params[2], len);
             v[len] = 0;
             hsv.v = (float)strtod(v, null);
-            color = hsv;
-         }*/
+            rgb = hsv;
+            color = Color {
+               (byte)Max(0.0, Min(1.0, rgb.r * 255)),
+               (byte)Max(0.0, Min(1.0, rgb.g * 255)),
+               (byte)Max(0.0, Min(1.0, rgb.b * 255))
+            };
+         }
          else
          {
             DefinedColor c = 0;
@@ -4146,5 +4150,92 @@ struct ContainerForStringCompare
    void OnFree()
    {
       delete exp;
+   }
+};
+
+public struct ColorHSV
+{
+   Degrees h;
+   float s,v;
+private:
+   property ColorRGB
+   {
+      set
+      {
+         float r = value.r, g = value.g, b = value.b;
+         float minV, maxV, diff,dr,dg,db;
+
+         float h = 0, s, v;
+
+         minV = Min(r, g);
+         minV = Min(minV, b);
+
+         maxV = Max(r, g);
+         maxV = Max(maxV, b);
+
+         diff = maxV - minV;
+         v = maxV;
+         if(diff)
+         {
+            s = diff/maxV;
+            dr = (maxV - r)/diff;
+            dg = (maxV - g)/diff;
+            db = (maxV - b)/diff;
+
+            /*
+                if R=V then -- between yellow and magenta [degrees]
+                  H=60.0*(G-B)/Delta
+                else if G=V then -- between cyan and yellow
+                    H=120.0+60.0*(B-R)/Delta
+                else -- between magenta and cyan
+                    H=240.0+60.0*(R-G)/Delta
+            */
+            if(r == maxV)
+               h = db - dg;
+            else if(g == maxV)
+               h = 2 + dr - db;
+            else if(b == maxV)
+               h = 4 + dg - dr;
+            if(h < 0)
+               h += 6;
+         }
+         else
+         {
+            h = 0;
+            s = 0;
+         }
+         this.h = h * Degrees { 60 };
+         this.s = s * 100;
+         this.v = v * 100;
+      }
+
+      get
+      {
+         float deg = (float)(this.h / 60);
+         float h = (deg == 6) ? 0 : deg, s = this.s / 100, v = this.v / 100;
+         int i = (int) h;
+         float f = h - i;
+         float p = v*(1-s);
+         float q = v*(1-(s*f));
+         float t = v*(1-s*(1-f));
+         float r,g,b;
+         switch(i)
+         {
+            case 0: r = v; g = t; b = p; break;
+            case 1: r = q; g = v; b = p; break;
+            case 2: r = p; g = v; b = t; break;
+            case 3: r = p; g = q; b = v; break;
+            case 4: r = t; g = p; b = v; break;
+            case 5: default: r = v; g = p; b = q; break;
+         }
+         // TODO: Figure out where this is needed
+         r = Max(Min(r, 1),0);
+         g = Max(Min(g, 1),0);
+         b = Max(Min(b, 1),0);
+
+         value.r = r;
+         value.g = g;
+         value.b = b;
+      }
    }
 };
