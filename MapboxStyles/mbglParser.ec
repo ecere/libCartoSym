@@ -52,7 +52,7 @@ public bool roundScale(double * denum)
    }
 }
 
-static struct ColorRGB { float r, g, b; };
+private /*static*/ struct ColorRGB { float r, g, b; };
 
 enum ColorParseMode { none, hex, alphaOnly };
 
@@ -2647,7 +2647,7 @@ static CQL2Expression convertOpExp(const String op, Array<MBGLFilterValue> param
    else if(!strcmpi(op, "step"))
       result = convertStepExp(params, implyKey, colorMode);
    else if(!strcmpi(op, "stops"))
-      result = convertStopsExp(params);
+      result = convertStopsExp(params, colorMode);
    else if(!strcmpi(op, "interpolate"))
       result = convertInterpolateExp(params, implyKey, colorMode);
    else if(!strcmpi(op, "case")) // selects first true condition, else fallbackvalue
@@ -2821,7 +2821,7 @@ static CQL2Expression convertStepExp(Array<MBGLFilterValue> params, bool implyKe
    return result;
 }
 
-static CQL2Expression convertStopsExp(Array<MBGLFilterValue> params)
+static CQL2Expression convertStopsExp(Array<MBGLFilterValue> params, ColorParseMode colorMode)
 {
    CQL2Expression result = null;
    int i;
@@ -2856,7 +2856,7 @@ static CQL2Expression convertStopsExp(Array<MBGLFilterValue> params)
 
             if (val && val->type.type != nil && val->type.type != 0)
             {
-               CQL2Expression eVal = convertMBGLExp(val, false, false, none);
+               CQL2Expression eVal = convertMBGLExp(val, false, false, colorMode);
 
                if(eVal)
                {
@@ -3165,10 +3165,13 @@ static CQL2Expression convertMBGLExp(MBGLFilterValue filter, bool isKey, bool im
    {
       if(isKey)
          result = CQL2ExpIdentifier { identifier = { string = CopyString(filter.s) } };
-      else if(colorParseMode != none)
-         result = getColorHexConstant(filter.s, colorParseMode);
       else
-         result = CQL2ExpString { string = CopyString(filter.s) };
+      {
+         if(colorParseMode != none)
+            result = getColorHexConstant(filter.s, colorParseMode);
+         if(!result)
+            result = CQL2ExpString { string = CopyString(filter.s) };
+      }
    }
    else if((filter.type.type == blob || filter.type.type == array) && params.count)// > 1  // FIXME: Should use 'array'
    { // REVIEW: This section seems to be handling "in" lists. Anything else?
