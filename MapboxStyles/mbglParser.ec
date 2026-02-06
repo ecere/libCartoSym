@@ -3096,12 +3096,17 @@ static CQL2Expression convertOperationExp(CQL2TokenType operator, Array<MBGLFilt
          }
          if(simplifyNot)
             result = ne;
-         else if(singleOperand)  // REVIEW: Is this still useful?
+         else if(singleOperand)  // REVIEW: Is this still useful? -- yes for any/or?
          {
             if(operator == not && ne._class == class(CQL2ExpIdentifier))
                result = CQL2ExpOperation { exp1 = ne, op = equal, exp2 = CQL2ExpIdentifier { identifier = { string = CopyString("null") } } };
             else
-               result = CQL2ExpOperation { op = operator, exp2 = ne };
+            {
+               if(operator == or && i == params.count - 1) // This happens with any which can have a single operand
+                  result = ne;
+               else
+                  result = CQL2ExpOperation { op = operator, exp2 = ne };
+            }
          }
          else if(operator == in || operator == notIn) //|| !strcmp(op, "none"))
          {
