@@ -920,10 +920,19 @@ public:
    }
 
    // REVIEW: How to identify enum values (we would need dest type to resolve here)? Are they allowed unquoted in CartoSym-CSS?
-   static bool isEnumValue(const String s)
+   static bool isEnumValue(const String s, Class destType)
    {
       if(!strcmp(s, "coverage") || !strcmp(s, "vector"))
          return true;
+
+      if(destType && destType.type == enumClass)
+         return true;
+      if(destType && destType == class(Color))
+      {
+         DefinedColor c = 0;
+         if(c.OnGetDataFromString(s))
+            return true;
+      }
       return false;
    }
 
@@ -942,7 +951,7 @@ public:
          json = { type = { integer, format = boolean }, i = 1 };
       else if(idString && !strcmpi(idString, "false"))
          json = { type = { integer, format = boolean }, i = 0 };
-      else if(isEnumValue(idString))
+      else if(isEnumValue(idString, destType))
          json = FieldValue { type = { text, mustFree = true }, s = idString };
       else
       {
@@ -2428,6 +2437,8 @@ public:
          if(destType &&
             (!strcmp(destType, "ValueColor") ||
              !strcmp(destType, "Color") ||
+             !strcmp(destType, "Pointf") ||
+             !strcmp(destType, "Alignment2D") ||
              !strcmp(destType, "GeoPoint")))
              isArray = true;
 
@@ -2435,8 +2446,12 @@ public:
             Map<String, FieldValue> map = null;
             Array<FieldValue> args = null;
             bool isValueColor = isArray && !strcmp(destType, "ValueColor");
+            bool isGraphic = destType &&                 // For current index altering way...
+               (!strcmp(destType, "GraphicalElement") || !strcmp(destType, "Container<GraphicalElement>"));
+            Class instClass = instance._class || destType ? eSystem_FindClass(__thisModule.application,
+               instance._class ? instance._class.name : destType) : null;
 
-            if(name && !isArray)
+            if(name && !isArray && !isGraphic)
             {
                map = { };
                args = { };
@@ -2448,6 +2463,9 @@ public:
             {
                map = { };
                json = { type = { FieldType::map }, m = map };
+
+               if(name)
+                  map["type"] = FieldValue { type = { text, mustFree = true }, s = CopyString(name) };
             }
             else
             {
@@ -2457,6 +2475,9 @@ public:
 
             if(instance.members)
             {
+               DataMember curMember = null;
+               Class curClass = null;
+
                for(m : instance.members)
                {
                   CQL2MemberInitList initList = m;
@@ -2472,6 +2493,58 @@ public:
                         if(init.initializer)
                         {
                            FieldValue a { };
+                           const String s = null;
+
+                           if(k && k._class == class(CQL2ExpIdentifier))
+                           {
+                              CQL2ExpIdentifier expId = (CQL2ExpIdentifier)k;
+                              s = expId.identifier ? expId.identifier.string : null;
+                           }
+
+                           if(instClass)
+                           {
+                              DataMember member;
+                              Property prop;
+                              const String lookUp = s;
+                              Class c = null;
+
+                              if(s)
+                              {
+                                 // Temporary mapping work-arounds
+                                 if(name && s && !strcmp(name, "Text") && !strcmp(s, "position"))
+                                    lookUp = "position2D";
+
+                                 member = eClass_FindDataMember(instClass, lookUp, instClass.module, null, null);
+
+                                 if(member)
+                                 {
+                                    if(!member.dataTypeClass)
+                                       member.dataTypeClass = eSystem_FindClass(instClass.module, member.dataTypeString);
+                                    c = member.dataTypeClass;
+                                 }
+                                 else if((prop = eClass_FindProperty(instClass, lookUp, instClass.module)))
+                                 {
+                                    if(!prop.dataTypeClass)
+                                       prop.dataTypeClass = eSystem_FindClass(instClass.module, prop.dataTypeString);
+                                    c = prop.dataTypeClass;
+                                 }
+                              }
+                              else
+                              {
+                                 eClass_FindNextMember(instClass, &curClass, &curMember, null, null);
+                                 member = curMember;
+
+                                 if(member)
+                                 {
+                                    if(!member.dataTypeClass)
+                                       member.dataTypeClass = eSystem_FindClass(instClass.module, member.dataTypeString);
+                                    c = member.dataTypeClass;
+                                 }
+                              }
+
+                              if(!init.initializer.destType)
+                                 init.initializer.destType = c;
+                           }
 
                            init.initializer.toCQL2JSON(a);
 
@@ -2490,12 +2563,6 @@ public:
                            }
                            else
                            {
-                              const String s = null;
-                              if(k && k._class == class(CQL2ExpIdentifier))
-                              {
-                                 CQL2ExpIdentifier expId = (CQL2ExpIdentifier)k;
-                                 s = expId.identifier ? expId.identifier.string : null;
-                              }
                               if(s)
                                  map[s] = a;
                            }

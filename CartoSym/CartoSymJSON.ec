@@ -63,6 +63,43 @@ static void toCQL2JSON(CQL2Expression v, FieldValue out, Class type)
    v.toCQL2JSON(out);
 }
 
+static void alterCQL2JSON(CQL2Expression v, FieldValue out, const String subProperties, Class type, int index)
+{
+   if(out.type.type == 0 || out.type.type == map)
+   {
+      FieldValue subOut { };
+      DataMember member;
+      Property prop;
+
+      if(out.type.type == 0)
+      {
+         out.type = { type = map, mustFree = true };
+         out.m = { };
+      }
+
+      member = eClass_FindDataMember(type, subProperties, type.module, null, null);
+      if(member)
+      {
+         if(!member.dataTypeClass)
+            member.dataTypeClass = eSystem_FindClass(type.module, member.dataTypeString);
+         v.destType = member.dataTypeClass;
+      }
+      else if((prop = eClass_FindProperty(type, subProperties, type.module)))
+      {
+         if(!prop.dataTypeClass)
+            prop.dataTypeClass = eSystem_FindClass(type.module, prop.dataTypeString);
+         v.destType = prop.dataTypeClass;
+      }
+      v.toCQL2JSON(subOut);
+
+      // TODO: Support deeper nesting
+      out.m["alter"] = FieldValue { type = { integer, format = boolean }, i = 1 };
+      if(index != -1)
+         out.m["index"] = FieldValue { type = { integer }, i = index };
+      out.m[subProperties] = subOut;
+   }
+}
+
 void convertSymbolizer(SymbolizerProperties s, CSJSONSymbolizer symbolizer)
 {
    for(i : s)
@@ -99,6 +136,35 @@ void convertSymbolizer(SymbolizerProperties s, CSJSONSymbolizer symbolizer)
                      else if(!strcmpi(is, "stroke")) toCQL2JSON(v, *&symbolizer.stroke, class(Stroke));
                      else if(!strcmpi(is, "marker")) toCQL2JSON(v, *&symbolizer.marker, class(Marker));
                      else if(!strcmpi(is, "label")) toCQL2JSON(v, *&symbolizer.label, class(CSLabel));
+                     else if(!strcmpi(is, "fill.color"))
+                        alterCQL2JSON(v, *&symbolizer.fill, "color", class(Fill), -1);
+                     else if(!strcmpi(is, "stroke.color"))
+                        alterCQL2JSON(v, *&symbolizer.stroke, "color", class(Stroke), -1);
+                     else if(!strcmpi(is, "stroke.width"))
+                        alterCQL2JSON(v, *&symbolizer.stroke, "width", class(Stroke), -1);
+                  }
+                  else if(k._class == class(CQL2ExpIndex))
+                  {
+                     CQL2ExpIndex expIndex = (CQL2ExpIndex)k;
+                     CQL2Expression e = expIndex.exp;
+
+                     if(e && e._class == class(CQL2ExpIdentifier))
+                     {
+                        CQL2ExpIdentifier expId = (CQL2ExpIdentifier)e;
+                        CQL2Identifier identifier = expId.identifier;
+                        const String is = identifier.string;
+                        Iterator<CQL2Expression> it { expIndex.index };
+                        CQL2ExpConstant c;
+
+                        it.Next();
+                        c = (CQL2ExpConstant)it.data;
+
+                        if(c && c._class == class(CQL2ExpConstant))
+                        {
+                           if(!strcmpi(is, "marker.elements"))
+                              alterCQL2JSON(v, *&symbolizer.marker, "elements", class(Marker), (int)c.constant.i);
+                        }
+                     }
                   }
                }
             }
@@ -144,7 +210,15 @@ CSJSONStylingRule convertStylingRule(StylingRule r)
       for(s : r.selectors)
       {
          if(!rule.selector.type)
-            s.exp.toCQL2JSON(rule.selector);
+         {
+            // NOTE: The following does not work
+            // s.exp.toCQL2JSON(rule.selector);
+
+            FieldValue fv = rule.selector;
+            CQL2Expression e = s.exp;
+            e.toCQL2JSON(fv);
+            rule.selector = fv;
+         }
          else
          {
             FieldValue thisSelector { };
@@ -188,7 +262,10 @@ CSJSONStylingRule convertStylingRule(StylingRule r)
       for(nr : r.nestedRules)
       {
          if(nr._class == class(StylingRule))
-            rule.nestedRules.Add(convertStylingRule((StylingRule)nr));
+         {
+            CSJSONStylingRule csr = convertStylingRule((StylingRule)nr);
+            rule.nestedRules.Add(csr);
+         }
       }
    }
    return rule;
