@@ -185,7 +185,8 @@ bool evaluateStyle(
       if(!style)
          PrintLn($"Failed to parse ", inputFile, $" as CartoSym-CSS style");
    }
-   else if(!strcmpi(inType, "csjson"))
+   else if(!strcmpi(inType, "csjson") ||
+      (!strcmpi(inType, "json") && RSearchString(inputFile, ".cs.json", strlen(inputFile), false, true)))
    {
       PrintLn($"CartoSym-JSON parsing not yet implemented");
    }
