@@ -60,6 +60,24 @@ public:
 static void toCQL2JSON(CQL2Expression v, FieldValue out, Class type)
 {
    v.destType = type;
+
+   if(type && type == class(Color) && v._class == class(CQL2ExpConstant))
+   {
+      CQL2ExpConstant c = (CQL2ExpConstant)v;
+
+      if(c.constant.type.type == integer)
+      {
+         Color color = (Color)c.constant.i;
+         CQL2ExpArray array { elements = { } };
+
+         array.elements.Add(CQL2ExpConstant { constant = { type = { integer }, i = color.r } });
+         array.elements.Add(CQL2ExpConstant { constant = { type = { integer }, i = color.g } });
+         array.elements.Add(CQL2ExpConstant { constant = { type = { integer }, i = color.b } });
+
+         array.toCQL2JSON(out);
+         return;
+      }
+   }
    v.toCQL2JSON(out);
 }
 
@@ -90,12 +108,19 @@ static void alterCQL2JSON(CQL2Expression v, FieldValue out, const String subProp
             prop.dataTypeClass = eSystem_FindClass(type.module, prop.dataTypeString);
          v.destType = prop.dataTypeClass;
       }
-      v.toCQL2JSON(subOut);
 
       // TODO: Support deeper nesting
       out.m["alter"] = FieldValue { type = { integer, format = boolean }, i = 1 };
       if(index != -1)
-         out.m["index"] = FieldValue { type = { integer }, i = index };
+      {
+         FieldValue value { };
+         toCQL2JSON(v, value, v.destType);
+         subOut = FieldValue { type = { map }, m = { } };
+         subOut.m["index"] = FieldValue { type = { integer }, i = index };
+         subOut.m["value"] = value;
+      }
+      else
+         toCQL2JSON(v, subOut, v.destType);
       out.m[subProperties] = subOut;
    }
 }
