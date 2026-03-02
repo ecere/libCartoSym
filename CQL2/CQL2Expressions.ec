@@ -739,6 +739,24 @@ public:
 
    void toCQL2JSON(FieldValue json)
    {
+      if((expType && expType == class(Color)) ||
+         (destType && destType == class(Color)) ||
+         (constant.type.type == integer && constant.type.format == color))
+      {
+         if(constant.type.type == integer)
+         {
+            Color color = (Color)constant.i;
+            Array<FieldValue> array { size = 3 };
+
+            array[0] =  { type = { integer }, i = color.r };
+            array[1] =  { type = { integer }, i = color.g };
+            array[2] =  { type = { integer }, i = color.b };
+
+            json = { type = { FieldType::array }, a = array };
+            return;
+         }
+      }
+
       // FIXME: json.OnCopy(constant);
       json = constant;
 

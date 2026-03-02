@@ -60,24 +60,6 @@ public:
 static void toCQL2JSON(CQL2Expression v, FieldValue out, Class type)
 {
    v.destType = type;
-
-   if(type && type == class(Color) && v._class == class(CQL2ExpConstant))
-   {
-      CQL2ExpConstant c = (CQL2ExpConstant)v;
-
-      if(c.constant.type.type == integer)
-      {
-         Color color = (Color)c.constant.i;
-         CQL2ExpArray array { elements = { } };
-
-         array.elements.Add(CQL2ExpConstant { constant = { type = { integer }, i = color.r } });
-         array.elements.Add(CQL2ExpConstant { constant = { type = { integer }, i = color.g } });
-         array.elements.Add(CQL2ExpConstant { constant = { type = { integer }, i = color.b } });
-
-         array.toCQL2JSON(out);
-         return;
-      }
-   }
    v.toCQL2JSON(out);
 }
 
