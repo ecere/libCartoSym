@@ -2465,7 +2465,7 @@ public:
          {
             Map<String, FieldValue> map = null;
             Array<FieldValue> args = null;
-            // bool isValueColor = isArray && !strcmp(destType, "ValueColor");
+            bool isValueColor = isArray && !strcmp(destType, "ValueColor");
             bool isGraphic = destType &&                 // For current index altering way...
                (!strcmp(destType, "GraphicalElement") || !strcmp(destType, "Container<GraphicalElement>"));
             Class instClass = instance._class || destType ? eSystem_FindClass(__thisModule.application,
@@ -2573,13 +2573,14 @@ public:
                               args.Add(a);
 
                               // REVIEW: Special handling of ValueColor which is currently used as a single tuple in CartoSym-CSS input
-                              /*if(isValueColor)
+                              if(isValueColor && initList.GetCount() > 2)
                               {
                                  Array<FieldValue> colorArgs { };
                                  args.Add({ type = { array }, a = colorArgs });
                                  args = colorArgs;
                                  isValueColor = false;
-                              }*/
+                                 instClass = class(Color);
+                              }
                            }
                            else
                            {
