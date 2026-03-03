@@ -52,7 +52,7 @@ public bool roundScale(double * denum)
    }
 }
 
-private /*static*/ struct ColorRGB { float r, g, b; };
+// private /*static*/ struct ColorRGB { float r, g, b; };
 
 enum ColorParseMode { none, hex, alphaOnly };
 

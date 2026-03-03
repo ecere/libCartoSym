@@ -37,6 +37,8 @@ class CSJSONSymbolizer
    FieldValue zOrder;
    FieldValue opacity;
    FieldValue singleChannel;
+   FieldValue colorChannels;
+   FieldValue alphaChannel;
    FieldValue colorMap;
    FieldValue hillShading;
    FieldValue fill;
@@ -49,6 +51,8 @@ public:
    property FieldValue opacity    { isset { return opacity.type.type != 0; }    get { value = opacity; }    set { visibility = opacity; } }
    property FieldValue visibility { isset { return visibility.type.type != 0; } get { value = visibility; } set { visibility = value; } }
    property FieldValue singleChannel { isset { return singleChannel.type.type != 0; } get { value = singleChannel; } set { singleChannel = value; } }
+   property FieldValue alphaChannel { isset { return alphaChannel.type.type != 0; } get { value = alphaChannel; } set { alphaChannel = value; } }
+   property FieldValue colorChannels { isset { return colorChannels.type.type != 0; } get { value = colorChannels; } set { colorChannels = value; } }
    property FieldValue colorMap { isset { return colorMap.type.type != 0; } get { value = colorMap; } set { colorMap = value; } }
    property FieldValue hillShading { isset { return hillShading.type.type != 0; } get { value = hillShading; } set { hillShading = value; } }
    property FieldValue fill        { isset { return fill.type.type != 0; } get { value = fill; } set { fill = value; } }
@@ -137,6 +141,8 @@ void convertSymbolizer(SymbolizerProperties s, CSJSONSymbolizer symbolizer)
                      else if(!strcmpi(is, "zOrder"))  toCQL2JSON(v, *&symbolizer.zOrder, class(int));
                      else if(!strcmpi(is, "opacity")) toCQL2JSON(v, *&symbolizer.opacity, class(double));
                      else if(!strcmpi(is, "singleChannel")) toCQL2JSON(v, *&symbolizer.singleChannel, class(double));
+                     else if(!strcmpi(is, "alphaChannel")) toCQL2JSON(v, *&symbolizer.alphaChannel, class(double));
+                     else if(!strcmpi(is, "colorChannels")) toCQL2JSON(v, *&symbolizer.colorChannels, class(ColorRGB));
                      else if(!strcmpi(is, "colorMap")) toCQL2JSON(v, *&symbolizer.colorMap, class(Array<ValueColor>));
                      else if(!strcmpi(is, "hillShading")) toCQL2JSON(v, *&symbolizer.hillShading, class(HillShading));
                      else if(!strcmpi(is, "fill")) toCQL2JSON(v, *&symbolizer.fill, class(Fill));

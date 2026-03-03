@@ -14,9 +14,9 @@ import "GraphicalSymbolizer"
 
 import "CartoSymTools" // For getStylesInt()
 
-public struct ColorRGBAf
+public struct ColorRGB
 {
-   float r, g, b, a;
+   float r, g, b;
 };
 // import "GeoDataCache"
 
@@ -96,7 +96,8 @@ public class CartoSymbolizer : ShapeSymbolizer
    Array<ValueOpacity> opacityMap;
    HillShading hillShading;
    ExtrusionOptions extrusion;
-   ColorRGBAf colorChannels;
+   ColorRGB colorChannels;
+   double alphaChannel;
    double singleChannel;
 
    ~CartoSymbolizer()
@@ -168,7 +169,7 @@ public:
       }
       isset { return extrusion.extrude; }
    }
-   property ColorRGBAf colorChannels
+   property ColorRGB colorChannels
    {
       get { value = colorChannels; }
       set { colorChannels = value; }
@@ -177,6 +178,11 @@ public:
    {
       get { return singleChannel; }
       set { singleChannel = value; }
+   }
+   property double alphaChannel
+   {
+      get { return alphaChannel; }
+      set { alphaChannel = value; }
    }
 
    property CartoExpFlags flags { get { return (CartoExpFlags)*&flags; } }
@@ -212,6 +218,9 @@ public:
       if(hillShading.opacityMap) sym.hillShading.opacityMap = { hillShading.opacityMap };
       if(hillShading.colorMap) sym.hillShading.colorMap = { hillShading.colorMap };
       if(*&extrusion.extrude) *&sym.extrusion = extrusion;
+      *&sym.colorChannels = colorChannels;
+      *&sym.alphaChannel = alphaChannel;
+      *&sym.singleChannel = singleChannel;
 
       return sym;
    }
@@ -280,7 +289,7 @@ public:
    bool colorChannelsR           :1:60;
    bool colorChannelsG           :1:61;
    bool colorChannelsB           :1:62;
-   bool colorChannelsA           :1:63;
+   bool alphaChannel             :1:63;
 };
 
 public enum CartoSymbolizerKind : ShapeSymbolizerKind
@@ -307,11 +316,11 @@ public enum CartoSymbolizerKind : ShapeSymbolizerKind
    extrusionHeight = CartoSymbolizerMask { extrusionHeight = true },
    extrusionBase = CartoSymbolizerMask { extrusionBase = true },
    extrusionTerrainRelative = CartoSymbolizerMask { extrusionTerrainRelative = true },
-   colorChannels = CartoSymbolizerMask { colorChannelsR = true, colorChannelsG = true, colorChannelsB = true, colorChannelsA = true },
+   colorChannels = CartoSymbolizerMask { colorChannelsR = true, colorChannelsG = true, colorChannelsB = true },
    colorChannelsR = CartoSymbolizerMask { colorChannelsR = true },
    colorChannelsG = CartoSymbolizerMask { colorChannelsG = true },
    colorChannelsB = CartoSymbolizerMask { colorChannelsB = true },
-   colorChannelsA = CartoSymbolizerMask { colorChannelsA = true },
+   alphaChannel = CartoSymbolizerMask { alphaChannel = true },
    singleChannel = CartoSymbolizerMask { singleChannel = true }
 };
 
@@ -344,7 +353,7 @@ Map<String, CartoSymbolizerKind> cartoSymbolizerIdentifierMap
    { "colorChannels.r", colorChannelsR },
    { "colorChannels.g", colorChannelsG },
    { "colorChannels.b", colorChannelsB },
-   { "colorChannels.a", colorChannelsA },
+   { "alphaChannel", alphaChannel },
    { "singleChannel", singleChannel }
 ] };
 
@@ -375,7 +384,7 @@ Map<CartoSymbolizerKind, const String> geoStringFromMaskMap
    { colorChannelsR, "colorChannels.r" },
    { colorChannelsG, "colorChannels.g" },
    { colorChannelsB, "colorChannels.b" },
-   { colorChannelsA, "colorChannels.a" },
+   { alphaChannel, "alphaChannel" },
    { singleChannel, "singleChannel" }
 ] };
 
@@ -1142,8 +1151,8 @@ private:
          case colorChannelsB:
             symbolizer.colorChannels.b = (float)value.r;
             break;
-         case colorChannelsA:
-            symbolizer.colorChannels.a = (float)value.r;
+         case alphaChannel:
+            symbolizer.alphaChannel = (float)value.r;
             break;
          case singleChannel:
             symbolizer.singleChannel = value.r;

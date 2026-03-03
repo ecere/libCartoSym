@@ -2457,6 +2457,7 @@ public:
              !strcmp(destType, "ValueOpacity") ||
              !strcmp(destType, "Color") ||
              !strcmp(destType, "Pointf") ||
+             !strcmp(destType, "ColorRGB") ||
              !strcmp(destType, "Alignment2D") ||
              !strcmp(destType, "GeoPoint")))
              isArray = true;
