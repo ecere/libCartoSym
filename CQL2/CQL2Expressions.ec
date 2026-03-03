@@ -2530,7 +2530,7 @@ public:
                               if(s)
                               {
                                  // Temporary mapping work-arounds
-                                 if(name && s && !strcmp(name, "Text") && !strcmp(s, "position"))
+                                 if(name && s && isGraphic /*!strcmp(name, "Text")*/ && !strcmp(s, "position"))
                                     lookUp = "position2D";
 
                                  member = eClass_FindDataMember(instClass, lookUp, instClass.module, null, null);
