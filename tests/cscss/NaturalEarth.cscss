@@ -17,7 +17,7 @@ ne_10m_admin_0_countries
       Text {
             text: name,
             font: {
-                  face: "Tahoma",
+                  face: 'Tahoma',
                   size: 14,
                   outline: { size: 3, opacity: 0.75, color: white }
             }
@@ -525,7 +525,7 @@ ne_10m_geographic_lines
    label: { elements: [
       Text {
          text: name;
-         font: { face: "Tahoma"; size: 12; outline: { size: 3; opacity: 0.75; color: white } }
+         font: { face: 'Tahoma'; size: 12; outline: { size: 3; opacity: 0.75; color: white } }
       }
    ] };
    zOrder: 85;
