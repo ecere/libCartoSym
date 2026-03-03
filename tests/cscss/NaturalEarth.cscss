@@ -1,0 +1,532 @@
+{ visibility: false; }
+
+ne_10m_wgs84_bounding_box
+{
+   visibility: true;
+   fill: { color: #e4f4f7 };
+   zOrder: 2;
+}
+
+ne_10m_admin_0_countries
+{
+   visibility: true;
+   zOrder: 1;
+   opacity: 0.3686275;
+
+   label: { elements: [
+      Text {
+            text: name,
+            font: {
+                  face: "Tahoma",
+                  size: 14,
+                  outline: { size: 3, opacity: 0.75, color: white }
+            }
+      }
+   ] };
+   [name = 'Afghanistan'] { fill.color: #D764C8; }
+   [name = 'Akrotiri']    { fill.color: #CCE932; }
+   [name = 'Aland'] { fill.color: #55C447; }
+   [name = 'Albania'] { fill.color: #8D7AA0; }
+   [name = 'Algeria'] { fill.color: #5D83F3; }
+   [name = 'American Samoa'] { fill.color: #EAA2B7; }
+   [name = 'Andorra'] { fill.color: #249B04; }
+   [name = 'Angola'] { fill.color: #3E23CD; }
+   [name = 'Anguilla'] { fill.color: #286621; }
+   [name = 'Antarctica'] { fill.color: #1BFF37; }
+   [name = 'Antigua and Barb.'] { fill.color: #83D69C; }
+   [name = 'Argentina'] { fill.color: #4BA386; }
+   [name = 'Armenia'] { fill.color: #7EF94A; }
+   [name = 'Aruba'] { fill.color: #C586C5; }
+   [name = 'Australia'] { fill.color: #66E448; }
+   [name = 'Austria'] { fill.color: #5ACEEB; }
+   [name = 'Azerbaijan'] { fill.color: #11F386; }
+   [name = 'Bahamas'] { fill.color: #1631A9; }
+   [name = 'Bahrain'] { fill.color: #E35910; }
+   [name = 'Baikonur'] { fill.color: #57510; }
+   [name = 'Bajo Nuevo Bank (Petrel Is.)'] { fill.color: #3CF8E6; }
+   [name = 'Bangladesh'] { fill.color: #D9448A; }
+   [name = 'Barbados'] { fill.color: #60C283; }
+   [name = 'Belarus'] { fill.color: #AA880A; }
+   [name = 'Belgium'] { fill.color: #70EEEE; }
+   [name = 'Belize'] { fill.color: #B848BD; }
+   [name = 'Benin'] { fill.color: #A35AB0; }
+   [name = 'Bermuda'] { fill.color: #2A70E1; }
+   [name = 'Bhutan'] { fill.color: #D4543A; }
+   [name = 'Bolivia'] { fill.color: #E459AF; }
+   [name = 'Bosnia and Herz.'] { fill.color: #F496A8; }
+   [name = 'Botswana'] { fill.color: #DB70EC; }
+   [name = 'Br. Indian Ocean Ter.'] { fill.color: #65D0AF; }
+   [name = 'Brazil'] { fill.color: #E97B37; }
+   [name = 'British Virgin Is.'] { fill.color: #F3EB25; }
+   [name = 'Brunei'] { fill.color: #E1A46E; }
+   [name = 'Bulgaria'] { fill.color: #9E47C9; }
+   [name = 'Burkina Faso'] { fill.color: #4E7239; }
+   [name = 'Burundi'] { fill.color: #30468E; }
+   [name = 'Cambodia'] { fill.color: #6A2BE8; }
+   [name = 'Cameroon'] { fill.color: #1A207E; }
+   [name = 'Canada'] { fill.color: #C2FCEF; }
+   [name = 'Cape Verde'] { fill.color: #AF62BF; }
+   [name = 'Cayman Is.'] { fill.color: #5E4B3B; }
+   [name = 'Central African Rep.'] { fill.color: #953E27; }
+   [name = 'Chad'] { fill.color: #BB20CB; }
+   [name = 'Chile'] { fill.color: #2ABE13; }
+   [name = 'China'] { fill.color: #F30D85; }
+   [name = 'Clipperton I.'] { fill.color: #2D3DCC; }
+   [name = 'Colombia'] { fill.color: #BBA8F7; }
+   [name = 'Comoros'] { fill.color: #A3C217; }
+   [name = 'Congo'] { fill.color: #228514; }
+   [name = 'Cook Is.'] { fill.color: #113476; }
+   [name = 'Coral Sea Is.'] { fill.color: #D192C1; }
+   [name = 'Costa Rica'] { fill.color: #D28FF; }
+   [name = 'Croatia'] { fill.color: #34E320; }
+   [name = 'Cuba'] { fill.color: #FF0DDE; }
+   [name = 'Curaçao'] { fill.color: #1201EC; }
+   [name = 'Cyprus'] { fill.color: #982E29; }
+   [name = 'Cyprus U.N. Buffer Zone'] { fill.color: #64E9D1; }
+   [name = 'Czech Rep.'] { fill.color: #5B8D94; }
+   [name = 'Côte d\\'Ivoire'] { fill.color: #73AF19; }
+   [name = 'Dem. Rep. Congo'] { fill.color: #87C14D; }
+   [name = 'Dem. Rep. Korea'] { fill.color: #FE93E0; }
+   [name = 'Denmark'] { fill.color: #BFA109; }
+   [name = 'Dhekelia'] { fill.color: #BFD5EC; }
+   [name = 'Djibouti'] { fill.color: #DFD4FA; }
+   [name = 'Dominica'] { fill.color: #BEE7FB; }
+   [name = 'Dominican Rep.'] { fill.color: #AA7F29; }
+   [name = 'Ecuador'] { fill.color: #D4E313; }
+   [name = 'Egypt'] { fill.color: #A63FA1; }
+   [name = 'El Salvador'] { fill.color: #3AB351; }
+   [name = 'Eq. Guinea'] { fill.color: #543B12; }
+   [name = 'Eritrea'] { fill.color: #A239A6; }
+   [name = 'Estonia'] { fill.color: #82F847; }
+   [name = 'Ethiopia'] { fill.color: #8BB81C; }
+   [name = 'Faeroe Is.'] { fill.color: #7897F1; }
+   [name = 'Falkland Is.'] { fill.color: #7356D9; }
+   [name = 'Fiji'] { fill.color: #6F0058; }
+   [name = 'Finland'] { fill.color: #99D53B; }
+   [name = 'Fr. Polynesia'] { fill.color: #AC7B7B; }
+   [name = 'Fr. S. Antarctic Lands'] { fill.color: #4EB62E; }
+   [name = 'France'] { fill.color: #9F0A69; }
+   [name = 'Gabon'] { fill.color: #B2ACA3; }
+   [name = 'Gambia'] { fill.color: #582F9B; }
+   [name = 'Georgia'] { fill.color: #A0BB54; }
+   [name = 'Germany'] { fill.color: #BD33EB; }
+   [name = 'Ghana'] { fill.color: #AFA741; }
+   [name = 'Gibraltar'] { fill.color: #881642; }
+   [name = 'Greece'] { fill.color: #E0AF17; }
+   [name = 'Greenland'] { fill.color: #1C5C93; }
+   [name = 'Grenada'] { fill.color: #97AA49; }
+   [name = 'Guam'] { fill.color: #C64954; }
+   [name = 'Guatemala'] { fill.color: #30FB00; }
+   [name = 'Guernsey'] { fill.color: #D35430; }
+   [name = 'Guinea'] { fill.color: #6FF5EB; }
+   [name = 'Guinea-Bissau'] { fill.color: #C3B21F; }
+   [name = 'Guyana'] { fill.color: #AF62C6; }
+   [name = 'Haiti'] { fill.color: #F1EADC; }
+   [name = 'Heard I. and McDonald Is.'] { fill.color: #34CB8C; }
+   [name = 'Honduras'] { fill.color: #4CE7E8; }
+   [name = 'Hong Kong'] { fill.color: #DF7F93; }
+   [name = 'Hungary'] { fill.color: #2946DD; }
+   [name = 'Iceland'] { fill.color: #7E76D9; }
+   [name = 'India'] { fill.color: #7E4A2E; }
+   [name = 'Indian Ocean Ter.'] { fill.color: #AFBA23; }
+   [name = 'Indonesia'] { fill.color: #9A7ED6; }
+   [name = 'Iran'] { fill.color: #B92D38; }
+   [name = 'Iraq'] { fill.color: #7F1F23; }
+   [name = 'Ireland'] { fill.color: #5C53EE; }
+   [name = 'Isle of Man'] { fill.color: #E89FD6; }
+   [name = 'Israel'] { fill.color: #D17E55; }
+   [name = 'Italy'] { fill.color: #64A89B; }
+   [name = 'Jamaica'] { fill.color: #422612; }
+   [name = 'Japan'] { fill.color: #1BA55D; }
+   [name = 'Jersey'] { fill.color: #495417; }
+   [name = 'Jordan'] { fill.color: #6DEF95; }
+   [name = 'Kazakhstan'] { fill.color: #43A8C3; }
+   [name = 'Kenya'] { fill.color: #7C28E2; }
+   [name = 'Kiribati'] { fill.color: #A08435; }
+   [name = 'Korea'] { fill.color: #8E6DD4; }
+   [name = 'Kosovo'] { fill.color: #643E53; }
+   [name = 'Kuwait'] { fill.color: #BAA3FC; }
+   [name = 'Kyrgyzstan'] { fill.color: #56E522; }
+   [name = 'Lao PDR'] { fill.color: #6901C8; }
+   [name = 'Latvia'] { fill.color: #C64B1D; }
+   [name = 'Lebanon'] { fill.color: #DDB80C; }
+   [name = 'Lesotho'] { fill.color: #72FCB5; }
+   [name = 'Liberia'] { fill.color: #3579DD; }
+   [name = 'Libya'] { fill.color: #181962; }
+   [name = 'Liechtenstein'] { fill.color: #4DA8CF; }
+   [name = 'Lithuania'] { fill.color: #210D0D; }
+   [name = 'Luxembourg'] { fill.color: #75C7B1; }
+   [name = 'Macao'] { fill.color: #711E96; }
+   [name = 'Macedonia'] { fill.color: #948798; }
+   [name = 'Madagascar'] { fill.color: #5C4DE3; }
+   [name = 'Malawi'] { fill.color: #7A2B9C; }
+   [name = 'Malaysia'] { fill.color: #869E98; }
+   [name = 'Maldives'] { fill.color: #3BD411; }
+   [name = 'Mali'] { fill.color: #19EC2B; }
+   [name = 'Malta'] { fill.color: #7B39D3; }
+   [name = 'Marshall Is.'] { fill.color: #4A5BE0; }
+   [name = 'Mauritania'] { fill.color: #58D0A8; }
+   [name = 'Mauritius'] { fill.color: #941C7; }
+   [name = 'Mexico'] { fill.color: #A0D64E; }
+   [name = 'Micronesia'] { fill.color: #38329C; }
+   [name = 'Moldova'] { fill.color: #1CACC8; }
+   [name = 'Monaco'] { fill.color: #B83366; }
+   [name = 'Mongolia'] { fill.color: #506F3B; }
+   [name = 'Montenegro'] { fill.color: #628827; }
+   [name = 'Montserrat'] { fill.color: #8E0361; }
+   [name = 'Morocco'] { fill.color: #614EBC; }
+   [name = 'Mozambique'] { fill.color: #42A68D; }
+   [name = 'Myanmar'] { fill.color: #EBAFCF; }
+   [name = 'N. Cyprus'] { fill.color: #B24FA5; }
+   [name = 'N. Mariana Is.'] { fill.color: #188D8; }
+   [name = 'Namibia'] { fill.color: #9EA484; }
+   [name = 'Nauru'] { fill.color: #665CB8; }
+   [name = 'Nepal'] { fill.color: #CDAD27; }
+   [name = 'Netherlands'] { fill.color: #810AF; }
+   [name = 'New Caledonia'] { fill.color: #309EB3; }
+   [name = 'New Zealand'] { fill.color: #910001; }
+   [name = 'Nicaragua'] { fill.color: #4E42A7; }
+   [name = 'Niger'] { fill.color: #DB2E57; }
+   [name = 'Nigeria'] { fill.color: #AAE1A7; }
+   [name = 'Niue'] { fill.color: #50E22F; }
+   [name = 'Norfolk Island'] { fill.color: #2880D4; }
+   [name = 'Norway'] { fill.color: #ACE730; }
+   [name = 'Oman'] { fill.color: #64B4DE; }
+   [name = 'Pakistan'] { fill.color: #8CBDEE; }
+   [name = 'Palau'] { fill.color: #3BED8D; }
+   [name = 'Palestine'] { fill.color: #EE7E8D; }
+   [name = 'Panama'] { fill.color: #F0CCD0; }
+   [name = 'Papua New Guinea'] { fill.color: #98A8FE; }
+   [name = 'Paraguay'] { fill.color: #EF53DF; }
+   [name = 'Peru'] { fill.color: #96A3C2; }
+   [name = 'Philippines'] { fill.color: #C6CB43; }
+   [name = 'Pitcairn Is.'] { fill.color: #9A782A; }
+   [name = 'Poland'] { fill.color: #CBDDDF; }
+   [name = 'Portugal'] { fill.color: #AA699C; }
+   [name = 'Puerto Rico'] { fill.color: #98A589; }
+   [name = 'Qatar'] { fill.color: #259408; }
+   [name = 'Romania'] { fill.color: #B384D5; }
+   [name = 'Russia'] { fill.color: #831C7D; }
+   [name = 'Rwanda'] { fill.color: #820CD0; }
+   [name = 'S. Geo. and S. Sandw. Is.'] { fill.color: #62A373; }
+   [name = 'S. Sudan'] { fill.color: #24693F; }
+   [name = 'Saint Helena'] { fill.color: #6804B7; }
+   [name = 'Saint Lucia'] { fill.color: #92D095; }
+   [name = 'Samoa'] { fill.color: #727AFE; }
+   [name = 'San Marino'] { fill.color: #F13A4; }
+   [name = 'Saudi Arabia'] { fill.color: #983838; }
+   [name = 'Scarborough Reef'] { fill.color: #A1ECBC; }
+   [name = 'Senegal'] { fill.color: #7670D9; }
+   [name = 'Serbia'] { fill.color: #F3F2E6; }
+   [name = 'Serranilla Bank'] { fill.color: #C45589; }
+   [name = 'Seychelles'] { fill.color: #387AF3; }
+   [name = 'Siachen Glacier'] { fill.color: #77E2F7; }
+   [name = 'Sierra Leone'] { fill.color: #2F75C7; }
+   [name = 'Singapore'] { fill.color: #C4E741; }
+   [name = 'Sint Maarten'] { fill.color: #C2F654; }
+   [name = 'Slovakia'] { fill.color: #678F8D; }
+   [name = 'Slovenia'] { fill.color: #9F307A; }
+   [name = 'Solomon Is.'] { fill.color: #5CA7EA; }
+   [name = 'Somalia'] { fill.color: #359BDD; }
+   [name = 'Somaliland'] { fill.color: #1C5F32; }
+   [name = 'South Africa'] { fill.color: #A597AD; }
+   [name = 'Spain'] { fill.color: #980F8F; }
+   [name = 'Spratly Is.'] { fill.color: #903E04; }
+   [name = 'Sri Lanka'] { fill.color: #5802EC; }
+   [name = 'St-Barthélemy'] { fill.color: #99C5E3; }
+   [name = 'St-Martin'] { fill.color: #EE2C72; }
+   [name = 'St. Kitts and Nevis'] { fill.color: #7CCBA3; }
+   [name = 'St. Pierre and Miquelon'] { fill.color: #F7274A; }
+   [name = 'St. Vin. and Gren.'] { fill.color: #E15DE6; }
+   [name = 'Sudan'] { fill.color: #BF7945; }
+   [name = 'Suriname'] { fill.color: #F21FDD; }
+   [name = 'Swaziland'] { fill.color: #9FB7EC; }
+   [name = 'Sweden'] { fill.color: #2F482A; }
+   [name = 'Switzerland'] { fill.color: #33A02D; }
+   [name = 'Syria'] { fill.color: #203AF2; }
+   [name = 'São Tomé and Principe'] { fill.color: #3291E; }
+   [name = 'Taiwan'] { fill.color: #76A6EA; }
+   [name = 'Tajikistan'] { fill.color: #199D12; }
+   [name = 'Tanzania'] { fill.color: #647F6F; }
+   [name = 'Thailand'] { fill.color: #4B3EE9; }
+   [name = 'Timor-Leste'] { fill.color: #903008; }
+   [name = 'Togo'] { fill.color: #6ED0C0; }
+   [name = 'Tonga'] { fill.color: #5BFF09; }
+   [name = 'Trinidad and Tobago'] { fill.color: #8633A9; }
+   [name = 'Tunisia'] { fill.color: #B353E3; }
+   [name = 'Turkey'] { fill.color: #A5570C; }
+   [name = 'Turkmenistan'] { fill.color: #C4CDB2; }
+   [name = 'Turks and Caicos Is.'] { fill.color: #AEE750; }
+   [name = 'Tuvalu'] { fill.color: #C04CCF; }
+   [name = 'U.S. Minor Outlying Is.'] { fill.color: #30970D; }
+   [name = 'U.S. Virgin Is.'] { fill.color: #19283E; }
+   [name = 'USNB Guantanamo Bay'] { fill.color: #22960E; }
+   [name = 'Uganda'] { fill.color: #E3F20E; }
+   [name = 'Ukraine'] { fill.color: #EC7841; }
+   [name = 'United Arab Emirates'] { fill.color: #962B95; }
+   [name = 'United Kingdom'] { fill.color: #79D0ED; }
+   [name = 'United States'] { fill.color: #8695BA; }
+   [name = 'Uruguay'] { fill.color: #3943A2; }
+   [name = 'Uzbekistan'] { fill.color: #8904EE; }
+   [name = 'Vanuatu'] { fill.color: #583485; }
+   [name = 'Vatican'] { fill.color: #664EAE; }
+   [name = 'Venezuela'] { fill.color: #A57144; }
+   [name = 'Vietnam'] { fill.color: #B45536; }
+   [name = 'W. Sahara'] { fill.color: #C242AE; }
+   [name = 'Wallis and Futuna Is.'] { fill.color: #4D8DA; }
+   [name = 'Yemen'] { fill.color: #9952AA; }
+   [name = 'Zambia'] { fill.color: #86D940; }
+   [name = 'Zimbabwe'] { fill.color: #411283; }
+}
+
+ne_10m_urban_areas
+{
+   visibility: true;
+   fill: { opacity: 0.8; color: #ffe469 };
+   stroke: { color: yellow; width: 0 };
+   zOrder: 31;
+}
+
+ne_10m_graticules_10
+{
+   visibility: true;
+   stroke: { color: gainsboro; width: 0.1 };
+   zOrder: 3;
+}
+
+ne_10m_graticules_30
+{
+   visibility: true;
+   stroke: { color: gray; width: 0.1 };
+   zOrder: 4;
+}
+
+ne_10m_populated_places
+{
+   visibility: true;
+   zOrder: 24;
+
+   [scalerank = 0]
+   {
+      label: { elements: [
+         Dot { color: white; size: 10 },
+         Dot { color: darkOrange; size: 6 },
+         Text {
+            text: name;
+            position2D: { 10, -4 };
+            font: { face: 'Tahoma'; size: 12; outline: { color: white; size: 3.5; opacity: 0.75 } };
+            alignment: { left, middle }
+         }
+      ] };
+   }
+}
+
+ne_10m_geography_regions_polys
+{
+   visibility: true;
+   fill: { opacity: 0 };
+   stroke: { width: 0 };
+   label: { elements: [
+      Text {
+         text: name,
+         font: { face: "Times New Roman"; size: 12; italic: true; color: papayaWhip; outline: { size: 3, color: black, opacity: 0.35 } },
+         alignment: { center, middle }
+      }
+   ] };
+   zOrder: 64;
+}
+
+ne_10m_bathymetry_I_2000
+{
+   visibility: true;
+   fill: { color: #95bce6 };
+   stroke: { width: 0; opacity: 0 };
+   zOrder: 3;
+}
+
+ne_10m_bathymetry_L_0
+{
+   visibility: true;
+   fill: { color: #d1e9ff };
+   stroke: { width: 0; opacity: 0 };
+   zOrder: 0;
+}
+
+ne_10m_bathymetry_K_200
+{
+   visibility: true;
+   fill: { color: #bfe0ff };
+   stroke: { width: 0; opacity: 0 };
+   zOrder: 1;
+}
+
+ne_10m_bathymetry_J_1000
+{
+   visibility: true;
+   fill: { color: #aacff2 };
+   stroke: { width: 0; opacity: 0 };
+   zOrder: 2;
+}
+
+ne_10m_bathymetry_H_3000
+{
+   visibility: true;
+   fill: { color: #86b3eb };
+   stroke: { width: 0; opacity: 0 };
+   zOrder: 4;
+}
+
+ne_10m_bathymetry_G_4000
+{
+   visibility: true;
+   fill: { color: #629fd9 };
+   stroke: { width: 0; opacity: 0 };
+   zOrder: 5;
+}
+
+ne_10m_bathymetry_F_5000
+{
+   visibility: true;
+   fill: { color: #528fcc };
+   stroke: { width: 0; opacity: 0 };
+   zOrder: 6;
+}
+
+ne_10m_bathymetry_E_6000
+{
+   visibility: true;
+   fill: { color: #427cb3 };
+   stroke: { width: 0; opacity: 0 };
+   zOrder: 7;
+}
+
+ne_10m_bathymetry_D_7000
+{
+   visibility: true;
+   fill: { color: #2b66a6 };
+   stroke: { width: 0; opacity: 0 };
+   zOrder: 8;
+}
+
+ne_10m_bathymetry_C_8000
+{
+   visibility: true;
+   fill: { color: #385b8c };
+   stroke: { width: 0; opacity: 0 };
+   zOrder: 9;
+}
+
+ne_10m_bathymetry_B_9000
+{
+   visibility: true;
+   fill: { color: #2a3268 };
+   stroke: { width: 0; opacity: 0 };
+   zOrder: 10;
+}
+
+ne_10m_bathymetry_A_10000
+{
+   visibility: true;
+   fill: { color: #1e1c47 };
+   stroke: { width: 0; opacity: 0 };
+   zOrder: 11;
+}
+
+ne_10m_playas
+{
+   visibility: true;
+   opacity: 0.4235294;
+   fill: { color: burlyWood };
+   stroke: { width: 0 };
+   zOrder: 75;
+}
+
+ne_10m_ocean
+{
+   visibility: true;
+   fill: { color: #e4f4f7 };
+   stroke: { width: 0 };
+   zOrder: 4;
+}
+
+ne_10m_admin_1_states_provinces
+{
+   visibility: true;
+   fill: { opacity: 0 };
+   stroke: { color: silver; width: 0.5 };
+   zOrder: 3;
+}
+
+ne_10m_rivers_lake_centerlines
+{
+   visibility: true;
+   stroke: { color: dodgerBlue; width: 0.5 };
+   zOrder: 36;
+}
+
+ne_10m_rivers_europe
+{
+   visibility: true;
+   stroke: { color: dodgerBlue; width: 0.5 };
+   zOrder: 25;
+}
+
+ne_10m_reefs
+{
+   visibility: true;
+   stroke: { color: #00af7a };
+   zOrder: 35;
+}
+
+ne_10m_lakes_pluvial
+{
+   visibility: true;
+   fill: { color: dodgerBlue };
+   stroke: { width: 0 };
+   zOrder: 22;
+}
+
+ne_10m_lakes_north_america
+{
+   visibility: true;
+   fill: { color: dodgerBlue };
+   stroke: { width: 0 };
+   zOrder: 70;
+}
+
+ne_10m_lakes_europe
+{
+   visibility: true;
+   fill: { color: dodgerBlue };
+   stroke: { width: 0 };
+   zOrder: 68;
+}
+
+ne_10m_lakes
+{
+   visibility: true;
+   fill: { color: dodgerBlue };
+   stroke: { width: 0 };
+   zOrder: 67;
+}
+
+ne_10m_glaciated_areas
+{
+   visibility: true;
+   fill: { opacity: 0.16, color: aqua };
+   stroke: { width: 0 };
+   zOrder: 65;
+}
+
+ne_10m_geographic_lines
+{
+   visibility: true;
+   stroke: { color: lavenderBlush };
+   label: { elements: [
+      Text {
+         text: name;
+         font: { face: "Tahoma"; size: 12; outline: { size: 3; opacity: 0.75; color: white } }
+      }
+   ] };
+   zOrder: 85;
+}
