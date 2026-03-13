@@ -265,7 +265,7 @@ public CQL2Expression normalizeCQL2(CQL2Expression c)
       }
    }
    else if(c._class == class(CQL2ExpInstance))
-      e = normalizeWKT((CQL2ExpInstance)c, none, null);
+      e = normalizeInstance((CQL2ExpInstance)c, none, null);
    return e;
 }
 
@@ -280,7 +280,7 @@ static CQL2Expression normalizeCQL2Array(CQL2ExpArray a, GeometryType geomType, 
          CQL2Expression e = el, a;
          if(e._class == class(CQL2ExpInstance))
          {
-            a = normalizeWKT((CQL2ExpInstance)el, geomType, null);
+            a = normalizeInstance((CQL2ExpInstance)el, geomType, null);
          }
          else
             a = normalizeCQL2(el);
@@ -314,7 +314,7 @@ static CQL2Expression normalizeCQL2Date(CQL2ExpConstant dateExp, bool * isT)
    return e;
 }
 
-static CQL2Expression normalizeWKT(CQL2ExpInstance expInstance, GeometryType geomType, CQL2ExpList bboxArgs)
+static CQL2Expression normalizeInstance(CQL2ExpInstance expInstance, GeometryType geomType, CQL2ExpList bboxArgs)
 {
    CQL2Instantiation instantiation = expInstance.instance;
    CQL2Expression e = null;
@@ -348,8 +348,12 @@ static CQL2Expression normalizeWKT(CQL2ExpInstance expInstance, GeometryType geo
       else if(!strcmp(sn, "TimeInterval"))
          isInterval = true;
    }
-   else
-      gt = geomType;
+
+   if(!geomRelated && gt == none && !bboxArgs && !isInterval)
+   {
+      // REVIEW: Skip normalization for CartoSym CQL2 extension types (not WKT or temporal)
+      return expInstance.copy();
+   }
 
    if(gt == none && !bboxArgs && (!specName || geomRelated)) gt = point;
 
@@ -395,7 +399,7 @@ static CQL2Expression normalizeWKT(CQL2ExpInstance expInstance, GeometryType geo
                         if(el._class == class(CQL2ExpInstance))
                         {
                            CQL2ExpInstance element = (CQL2ExpInstance)el;
-                           e = normalizeWKT(element, polygon, null);
+                           e = normalizeInstance(element, polygon, null);
                         }
                         else
                            e = { };
@@ -422,7 +426,7 @@ static CQL2Expression normalizeWKT(CQL2ExpInstance expInstance, GeometryType geo
                   break;
                case bbox:
                   if(iInstance)
-                     normalizeWKT(iInstance, none, arguments);
+                     normalizeInstance(iInstance, none, arguments);
                   break;
                default:
                {
