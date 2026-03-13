@@ -62,8 +62,10 @@ public:
 
 static void toCQL2JSON(CQL2Expression v, FieldValue out, Class type)
 {
-   v.destType = type;
-   v.toCQL2JSON(out);
+   CQL2Expression normalized = normalizeCQL2(v);
+   if(type) normalized.destType = type;
+   normalized.toCQL2JSON(out);
+   // REVIEW: delete normalized;
 }
 
 static void alterCQL2JSON(CQL2Expression v, FieldValue out, const String subProperties, Class type, int index)
@@ -228,7 +230,7 @@ CSJSONStylingRule convertStylingRule(StylingRule r)
 
             FieldValue fv = rule.selector;
             CQL2Expression e = s.exp;
-            e.toCQL2JSON(fv);
+            toCQL2JSON(e, fv, null);
             rule.selector = fv;
          }
          else
@@ -236,7 +238,7 @@ CSJSONStylingRule convertStylingRule(StylingRule r)
             FieldValue thisSelector { };
             Array<FieldValue> andArgs = null;
 
-            s.exp.toCQL2JSON(thisSelector);
+            toCQL2JSON(s.exp, thisSelector, null);
 
             if(rule.selector.type.type == map && rule.selector.m)
             {

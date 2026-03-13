@@ -1851,6 +1851,50 @@ public:
          delete f;
          delete parser;
       }
+      else if(expIdString && !strcmpi(expIdString, "DATE"))
+      {
+         Map<String, FieldValue> map { };
+         FieldValue date { };
+
+         if(arguments && arguments.GetCount() >= 1)
+         {
+            CQL2Expression arg = arguments[0];
+            arg.toCQL2JSON(date);
+         }
+
+         map["date"] = date;
+         json = { type = { FieldType::map }, m = map };
+      }
+      else if(expIdString && !strcmpi(expIdString, "TIMESTAMP"))
+      {
+         Map<String, FieldValue> map { };
+         FieldValue timeStamp { };
+
+         if(arguments && arguments.GetCount() >= 1)
+         {
+            CQL2Expression arg = arguments[0];
+            arg.toCQL2JSON(timeStamp);
+         }
+
+         map["timestamp"] = timeStamp;
+         json = { type = { FieldType::map }, m = map };
+      }
+      else if(expIdString && !strcmpi(expIdString, "INTERVAL"))
+      {
+         Map<String, FieldValue> map { };
+         Array<FieldValue> array { };
+         FieldValue interval { type = { FieldType::array }, a = array };
+
+         if(arguments && arguments.GetCount() >= 2)
+         {
+            array.size = 2;
+            arguments[0].toCQL2JSON(array[0]);
+            arguments[1].toCQL2JSON(array[1]);
+         }
+
+         map["interval"] = interval;
+         json = { type = { FieldType::map }, m = map };
+      }
       else
       {
          String idString = CopyString(expIdString);
