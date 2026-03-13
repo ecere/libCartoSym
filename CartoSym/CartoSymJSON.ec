@@ -65,7 +65,7 @@ static void toCQL2JSON(CQL2Expression v, FieldValue out, Class type)
    CQL2Expression normalized = normalizeCQL2(v);
    if(type) normalized.destType = type;
    normalized.toCQL2JSON(out);
-   // REVIEW: delete normalized;
+   delete normalized;
 }
 
 static void alterCQL2JSON(CQL2Expression v, FieldValue out, const String subProperties, Class type, int index)
@@ -102,7 +102,7 @@ static void alterCQL2JSON(CQL2Expression v, FieldValue out, const String subProp
       {
          FieldValue value { };
          toCQL2JSON(v, value, v.destType);
-         subOut = FieldValue { type = { map }, m = { } };
+         subOut = FieldValue { type = { map, mustFree = true }, m = { } };
          subOut.m["index"] = FieldValue { type = { integer }, i = index };
          subOut.m["value"] = value;
       }
@@ -207,16 +207,16 @@ CSJSONStylingRule convertStylingRule(StylingRule r)
       didMap["sysId"] = did;
       m["op"] = FieldValue { type = { text }, s = (String)"=" };
       m["args"] = {
-         type = { array },
+         type = { array, mustFree = true },
          a = Array<FieldValue> { [
             {
-               type = { map },
+               type = { map, mustFree = true },
                m = didMap
             },
             { type = { text }, s = r.id.string }
          ] }
       };
-      rule.selector = { type = { map } , m = m };
+      rule.selector = { type = { map, mustFree = true } , m = m };
    }
 
    if(r.selectors)
@@ -261,7 +261,7 @@ CSJSONStylingRule convertStylingRule(StylingRule r)
 
                andArgs.Add(rule.selector);
 
-               rule.selector = { type = { map }, m = andMap };
+               rule.selector = { type = { map, mustFree = true }, m = andMap };
             }
 
             andArgs.Add(thisSelector);

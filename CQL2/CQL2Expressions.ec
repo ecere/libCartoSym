@@ -757,8 +757,8 @@ public:
          }
       }
 
-      // FIXME: json.OnCopy(constant);
-      json = constant;
+      // FIXME: Omitting 'this.' here resolves constant to 1001
+      json.OnCopy(this.constant);
 
       // TODO: Units
    }
@@ -820,7 +820,7 @@ public:
 
    void toCQL2JSON(FieldValue json)
    {
-      json = FieldValue { type = { text, mustFree = true }, s = string };
+      json = FieldValue { type = { text, mustFree = true }, s = CopyString(string) };
    }
 
    ~CQL2ExpString()
@@ -974,7 +974,7 @@ public:
       else
       {
          Map<String, FieldValue> m { };
-         json = { type = { map }, m = m };
+         json = { type = { map, mustFree = true }, m = m };
 
          m[isSysId(idString) ? "sysId" : "property"] = FieldValue { type = { text, mustFree = true }, s = idString };
       }
@@ -1339,7 +1339,7 @@ public:
       Array<FieldValue> args { };
       const String opString = null;
 
-      json = { type = { map }, m = m };
+      json = { type = { map, mustFree = true }, m = m };
 
       if((op == notEqual && exp2IsNull) || op == notLike || op == notBetween)
       {
@@ -1349,7 +1349,7 @@ public:
 
          op = (op == notEqual) ? equal : (op == notLike) ? like : between;
          m = { };
-         args.Add({ type = { map }, m = m });
+         args.Add({ type = { map, mustFree = true }, m = m });
          args = { };
       }
 
@@ -1901,7 +1901,7 @@ public:
          Map<String, FieldValue> m { };
          Array<FieldValue> args { };
 
-         json = { type = { map }, m = m };
+         json = { type = { map, mustFree = true }, m = m };
 
          if(idString)
          {
