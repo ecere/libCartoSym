@@ -723,6 +723,8 @@ public:
       CQL2ExpConstant e { constant = constant, expType = expType, destType = destType };
       if(e.constant.type.type == text && e.constant.type.mustFree)
          e.constant.s = CopyString(e.constant.s);
+      if(unit)
+         e.unit = unit.copy();
       return e;
    }
 
@@ -760,7 +762,12 @@ public:
       // FIXME: Omitting 'this.' here resolves constant to 1001
       json.OnCopy(this.constant);
 
-      // TODO: Units
+      if(unit && unit.string)
+      {
+         Map<String, FieldValue> map { };
+         map[unit.string] = json;
+         json = { type = { FieldValue::map, mustFree = true }, m = map };
+      }
    }
 
    ~CQL2ExpConstant()
