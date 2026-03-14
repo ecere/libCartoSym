@@ -7,6 +7,17 @@ class CSJSONStyle
 public:
    List<CSJSONStylingRule> stylingRules;
    CSJSONMetadata metadata;
+
+   ~CSJSONStyle()
+   {
+      if(stylingRules)
+      {
+         stylingRules.Free();
+         delete stylingRules;
+      }
+
+      delete metadata;
+   }
 }
 
 class CSJSONStylingRule
@@ -21,6 +32,21 @@ public:
    }
    CSJSONSymbolizer symbolizer;
    List<CSJSONStylingRule> nestedRules;
+   String name;
+
+   ~CSJSONStylingRule()
+   {
+      if(nestedRules)
+      {
+         nestedRules.Free();
+         delete nestedRules;
+      }
+
+      delete symbolizer;
+      delete name;
+
+      selector.OnFree();
+   }
 }
 
 class CSJSONMetadata
@@ -28,6 +54,12 @@ class CSJSONMetadata
 public:
    String title;
    String abstract;
+
+   ~CSJSONMetadata()
+   {
+      delete title;
+      delete abstract;
+   }
 }
 
 class CSJSONSymbolizer
@@ -58,9 +90,25 @@ public:
    property FieldValue stroke      { isset { return stroke.type.type != 0; } get { value = stroke; } set { stroke = value; } }
    property FieldValue marker      { isset { return marker.type.type != 0; } get { value = marker; } set { marker = value; } }
    property FieldValue label       { isset { return label.type.type != 0; } get { value = label; } set { label = value; } }
+
+   ~CSJSONSymbolizer()
+   {
+      visibility.OnFree();
+      zOrder.OnFree();
+      opacity.OnFree();
+      singleChannel.OnFree();
+      colorChannels.OnFree();
+      alphaChannel.OnFree();
+      colorMap.OnFree();
+      hillShading.OnFree();
+      fill.OnFree();
+      stroke.OnFree();
+      marker.OnFree();
+      label.OnFree();
+   }
 }
 
-static void toCQL2JSON(CQL2Expression v, FieldValue out, Class type)
+/*static */public void toCQL2JSON(CQL2Expression v, FieldValue out, Class type)
 {
    CQL2Expression normalized = normalizeCQL2(v);
    if(type) normalized.destType = type;
@@ -311,11 +359,131 @@ CSJSONStyle convertToCSJSON(CartoStyle in)
                if(!style.metadata) style.metadata = { };
 
                if(!strcmp(id, "title"))
-                  style.metadata.title = m.value ? m.value.string : null;
+                  style.metadata.title = m.value ? CopyString(m.value.string) : null;
                else if(!strcmp(id, "abstract"))
-                  style.metadata.abstract = m.value ? m.value.string : null;
+                  style.metadata.abstract = m.value ? CopyString(m.value.string) : null;
             }
          }
+      }
+   }
+   return style;
+}
+
+static void setSymInitializer(SymbolizerProperties symbolizer, const String prop, /*const*/ FieldValue value, Class type)
+{
+   CQL2MemberInit memberInit { };
+   CQL2MemberInitList initList { [ memberInit ] };
+
+   // TODO: handle alter
+   memberInit.lhValue = CQL2ExpIdentifier { identifier = { string = CopyString(prop) } };
+   memberInit.initializer = convertCQL2JSONEx(value, type);
+   memberInit.assignType = equal;
+   /*if(memberInit.initializer)
+   {
+      PrintLn(memberInit.initializer._class.name);
+      if(memberInit.initializer._class == class(CQL2ExpConstant))
+      {
+         CQL2ExpConstant c = (CQL2ExpConstant)memberInit.initializer;
+         PrintLn(c.constant);
+      }
+   }*/
+
+   symbolizer.Add(initList);
+}
+
+SymbolizerProperties convertCSJSONSymbolizer(CSJSONSymbolizer s)
+{
+   SymbolizerProperties symbolizer { };
+
+   if(s.visibility.type.type)
+      setSymInitializer(symbolizer, "visibility", s.visibility, class(bool));
+   if(s.zOrder.type.type)
+      setSymInitializer(symbolizer, "zOrder", s.zOrder, class(int));
+   if(s.opacity.type.type)
+      setSymInitializer(symbolizer, "opacity", s.opacity, class(double));
+   if(s.singleChannel.type.type)
+      setSymInitializer(symbolizer, "singleChannel", s.singleChannel, class(double));
+   if(s.colorChannels.type.type)
+      setSymInitializer(symbolizer, "colorChannels", s.colorChannels, class(ColorRGB));
+   if(s.alphaChannel.type.type)
+      setSymInitializer(symbolizer, "alphaChannel", s.alphaChannel, class(double));
+   if(s.colorMap.type.type)
+      setSymInitializer(symbolizer, "colorMap", s.colorMap, class(Array<ValueColor>));
+   if(s.hillShading.type.type)
+      setSymInitializer(symbolizer, "hillShading", s.hillShading, class(HillShading));
+   if(s.fill.type.type)
+      setSymInitializer(symbolizer, "fill", s.fill, class(Fill));
+   if(s.stroke.type.type)
+      setSymInitializer(symbolizer, "stroke", s.stroke, class(Stroke));
+   if(s.marker.type.type)
+      setSymInitializer(symbolizer, "marker", s.marker, class(Marker));
+   if(s.label.type.type)
+      setSymInitializer(symbolizer, "label", s.label, class(CSLabel));
+   return symbolizer;
+}
+
+StylingRule convertCSJSONStylingRule(CSJSONStylingRule r)
+{
+   StylingRule rule { };
+
+   if(r.selector.type.type && r.selector.type.type != nil)
+   {
+      StylingRuleSelector selector { exp = convertCQL2JSONEx(r.selector, class(bool)) };
+
+      rule.selectors = { [ selector ] };
+   }
+
+   if(r.symbolizer)
+   {
+      rule.symbolizer = convertCSJSONSymbolizer(r.symbolizer);
+   }
+
+   if(r.nestedRules && r.nestedRules.count)
+   {
+      rule.nestedRules = { };
+      for(nr : r.nestedRules)
+         rule.nestedRules.Add(convertCSJSONStylingRule(nr));
+   }
+   return rule;
+}
+
+CartoStyle convertFromCSJSON(CSJSONStyle in)
+{
+   CartoStyle style { };
+
+   if(in && in.stylingRules && in.stylingRules.count)
+   {
+      StyleBlockList rules { };
+
+      style.list = rules;
+
+      if(in.metadata)
+      {
+         if(in.metadata.title)
+         {
+            StyleMetadata title
+            {
+               type = { string = CopyString("title") },
+               value = { string = CopyString(in.metadata.title) }
+            };
+            rules.Add(title);
+         }
+         if(in.metadata.abstract)
+         {
+            StyleMetadata abstract
+            {
+               type = { string = CopyString("abstract") },
+               value = { string = CopyString(in.metadata.abstract) }
+            };
+            rules.Add(abstract);
+         }
+      }
+
+      for(r : in.stylingRules)
+      {
+         CSJSONStylingRule rule = r;
+
+         style.list.Add(convertCSJSONStylingRule(rule));
       }
    }
    return style;
@@ -334,6 +502,23 @@ public bool writeCSJSON(CartoStyle style, const String outputFile)
       result = true;
 
       delete f;
+   }
+   return result;
+}
+
+public CartoStyle loadCSJSON(File f)
+{
+   CartoStyle result = null;
+   if(f)
+   {
+      JSONParser parser { f = f };
+      CSJSONStyle csJSON = null;
+      JSONResult r = parser.GetObject(class(CSJSONStyle), &csJSON);
+
+      if(r == success && csJSON)
+         result = convertFromCSJSON(csJSON);
+      delete csJSON;
+      delete parser;
    }
    return result;
 }

@@ -3,6 +3,8 @@ public import IMPORT_STATIC "CQL2"
 
 private:
 
+CartoStyle loadCSJSON(File f);
+
 public class CartoStyle
 {
    ~CartoStyle()
@@ -143,7 +145,13 @@ public:
       File f = fileName ? FileOpen(fileName, read) : null;
       if(f)
       {
-         result = loadFile(f);
+         char ext[MAX_EXTENSION];
+
+         GetExtension(fileName, ext);
+         if(!strcmpi(ext, "json") || !strcmpi(ext, "csjson"))
+            result = loadCSJSON(f);
+         else
+            result = loadFile(f);
          delete f;
       }
       return result;

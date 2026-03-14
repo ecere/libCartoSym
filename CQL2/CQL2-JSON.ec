@@ -38,8 +38,13 @@ public CQL2Expression parseCQL2JSONExpressionFile(File f)
    return result;
 }
 
-// fieldvalue contains the json document
 static CQL2Expression convertCQL2JSON(FieldValue value)
+{
+   return convertCQL2JSONEx(value, null);
+}
+
+// fieldvalue contains the json document
+public CQL2Expression convertCQL2JSONEx(FieldValue value, Class destType)
 {
    CQL2Expression result = null;
 
@@ -59,24 +64,153 @@ static CQL2Expression convertCQL2JSON(FieldValue value)
       }
       case text:
       {
-         result = CQL2ExpString { string = CopyString(value.s) };
+         if(destType == class(Color))
+            result = CQL2ExpIdentifier { identifier = CQL2Identifier { string = CopyString(value.s) } };
+         else
+            result = CQL2ExpString { string = CopyString(value.s) };
          break;
       }
       case array:
       {
          Array<FieldValue> values = (Array<FieldValue>)value.a;
-         CQL2ExpArray array { elements = {} };
-         for(v : values)
+
+         if(destType == class(Color))
          {
-            CQL2Expression e = convertCQL2JSON(v);
-            array.elements.Add(e);
+            bool isConstant = true;
+            Color c = 0;
+            uint shift = 16;
+            int i;
+
+            for(i = 0; i < values.count; i++)
+            {
+               if(values[i].type.type != integer)
+               {
+                  isConstant = false;
+                  break;
+               }
+               else
+                  c |= values[i].i << shift;
+               shift -= 8;
+               if(i >= 2)
+                  break;
+            }
+
+            if(isConstant)
+               result = CQL2ExpConstant { constant = { type = { integer, format = hex /*color*/ }, i = c } };
+            else
+            {
+               CQL2ExpInstance expInst { };
+               if(values.count >= 1)
+               {
+                  CQL2Expression r = convertCQL2JSONEx(values[0], class(int));
+                  expInst.setMember2("r", 0, true, r, null, class(int), equal);
+               }
+               if(values.count >= 2)
+               {
+                  CQL2Expression g = convertCQL2JSONEx(values[1], class(int));
+                  expInst.setMember2("g", 0, true, g, null, class(int), equal);
+               }
+               if(values.count >= 3)
+               {
+                  CQL2Expression b = convertCQL2JSONEx(values[2], class(int));
+                  expInst.setMember2("b", 0, true, b, null, class(int), equal);
+               }
+               result = expInst;
+            }
          }
-         result = array;
+         else if(destType == class(Pointf))
+         {
+            /*
+            int i;
+            bool isConstant = true;
+
+            for(i = 0; i < values.count; i++)
+            {
+               if(values[i].type.type != real && values[i].type.type != integer)
+               {
+                  isConstant = false;
+                  break;
+               }
+               if(i >= 2)
+                  break;
+            }
+
+            if(isConstant)
+            {
+               CQL2Tuple { };
+               result = ...
+            }
+            else
+            */
+            {
+               CQL2ExpInstance expInst { };
+               if(values.count >= 1)
+               {
+                  CQL2Expression x = convertCQL2JSONEx(values[0], class(double));
+                  expInst.setMember2("x", 0, true, x, null, class(double), equal);
+               }
+               if(values.count >= 2)
+               {
+                  CQL2Expression y = convertCQL2JSONEx(values[1], class(double));
+                  expInst.setMember2("y", 0, true, y, null, class(double), equal);
+               }
+               result = expInst;
+            }
+         }
+         else if(!strcmp(destType.name, "Alignment2D"))
+         {
+            /*
+            int i;
+            bool isConstant = true;
+
+            for(i = 0; i < values.count; i++)
+            {
+               if(values[i].type.type != real && values[i].type.type != integer)
+               {
+                  isConstant = false;
+                  break;
+               }
+               if(i >= 2)
+                  break;
+            }
+
+            if(isConstant)
+            {
+               CQL2Tuple { };
+               result = ...
+            }
+            else
+            */
+            {
+               CQL2ExpInstance expInst { };
+               if(values.count >= 1)
+               {
+                  CQL2Expression horzAlign = convertCQL2JSONEx(values[0], class(double));
+                  expInst.setMember2("horzAlign", 0, true, horzAlign, null, class(double), equal);
+               }
+               if(values.count >= 2)
+               {
+                  CQL2Expression vertAlign = convertCQL2JSONEx(values[1], class(double));
+                  expInst.setMember2("vertAlign", 0, true, vertAlign, null, class(double), equal);
+               }
+               result = expInst;
+            }
+         }
+         else
+         {
+            CQL2ExpArray array { elements = {} };
+            for(v : values)
+            {
+               CQL2Expression e = convertCQL2JSON(v);
+               array.elements.Add(e);
+            }
+            result = array;
+         }
          break;
       }
       case map:
       {
-         result = convertCQL2JSONMap(value);
+         result = convertCQL2JSONMap(value, destType);
          break;
       }
       case blob:
@@ -94,12 +228,51 @@ static CQL2Expression convertCQL2JSON(FieldValue value)
 
 static enum CQL2JSONSpecialOperationType { none, function, like, between, isNull };
 
-static CQL2Expression convertCQL2JSONMap(FieldValue value)
+static CQL2Expression convertGenericObject(FieldValue value, Class destType, bool skipType)
+{
+   Class type = destType;
+   CQL2ExpInstance expInst { instance = { }, instanceFlags = { resolved = true }, expType = type };
+   bool isGraphic = destType && !strcmp(destType.base.name, "GraphicalElement");
+
+   if(skipType && destType)
+      expInst.instance._class = { name = CopyString(destType.name) };
+
+   for(v : value.m)
+   {
+      const String key = &v;
+      const String lookUp = isGraphic && !strcmp(key, "position") ? "position2D" : key;
+      CQL2Expression vExp;
+      FieldValue value = v;
+      DataMember member = eClass_FindDataMember(type, lookUp, type.module, null, null);
+      Property prop;
+      Class mDestType = null;
+
+      if(skipType && !strcmpi(key, "type")) continue;
+
+      if(member)
+      {
+         if(!member.dataTypeClass)
+            member.dataTypeClass = eSystem_FindClass(type.module, member.dataTypeString);
+         mDestType = member.dataTypeClass;
+      }
+      else if((prop = eClass_FindProperty(type, lookUp, type.module)))
+      {
+         if(!prop.dataTypeClass)
+            prop.dataTypeClass = eSystem_FindClass(type.module, prop.dataTypeString);
+         mDestType = prop.dataTypeClass;
+      }
+      vExp = convertCQL2JSONEx(value, mDestType);
+      expInst.setMember2(key, 0, true, vExp, null, mDestType, equal);
+   }
+   return expInst;
+}
+
+static CQL2Expression convertCQL2JSONMap(FieldValue value, Class destType)
 {
    CQL2Expression result = null;
    MapIterator<String, FieldValue> it { map = value.m };
 
-   if(it.Index("property", false))
+   if(it.Index("property", false) || it.Index("sysId", false))
    {
       FieldValue v = it.data;
       if(v.type.type == text)
@@ -310,6 +483,49 @@ static CQL2Expression convertCQL2JSONMap(FieldValue value)
                       : !strcmpi(idString, "GEOMETRYCOLLECTION") ? geometryCollection : none;
       if(gt != none && it.Index(gt == geometryCollection ? "geometries" : "coordinates", false))
          result = convertCQL2JSONGeometry(gt, it.data);
+      else
+      {
+         bool skipType = true;
+         Class type = destType;
+         if(idString)
+         {
+            Class t = eSystem_FindClass(destType ? destType.module : __thisModule.application, idString);
+            if(t && (!destType || eClass_IsDerived(t, destType)))
+               type = t;
+            else
+               skipType = false;
+         }
+         if(type)
+            result = convertGenericObject(value, type, skipType);
+      }
+   }
+   // Units
+   else if(it.Index("px", false) ||
+           it.Index("m", false) ||
+           it.Index("ft", false) ||
+           it.Index("pc", false) ||
+           it.Index("em", false) ||
+           it.Index("in", false) ||
+           it.Index("cm", false) ||
+           it.Index("mm", false))
+   {
+      FieldValue v = it.data;
+      result = convertCQL2JSON(v);
+      if(result._class == class(CQL2ExpConstant))
+      {
+         // REVIEW: For now CartoSym-CSS only supports units on constants
+         CQL2ExpConstant constant = (CQL2ExpConstant)result;
+         constant.unit = CQL2Identifier { string = CopyString(it.key) };
+      }
+   }
+   // Generic classes
+   else if(destType)
+      result = convertGenericObject(value, destType, false);
+   else
+   {
+      PrintLn("WARNING: Unhandled CQL2-JSON dictionary");
+      for(v : value.m)
+         PrintLn(&v, ": ", v);
    }
    return result;
 }

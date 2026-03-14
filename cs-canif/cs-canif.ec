@@ -17,12 +17,12 @@ static void showSyntax()
 {
    PrintLn(
      $"CartoSym Canif, a Cartographic Symbology, CQL2 and Simple Features transcoder / multi-purpose utility\n"
-      "Copyright (c) 2014-2025 Ecere Corporation\n"
+      "Copyright (c) 2014-2026 Ecere Corporation\n"
       "Syntax:\n"
       "   cs-canif <command> [options] <arguments>\n"
       "\n"
       "Supported cartographic symbology encodings:\n"
-      "   .cscss (CartoSym-CSS), .sld (SLD/SE), .json (Mapbox GL / Map Libre)\n"
+      "   .cscss (CartoSym-CSS), .csjson/.cs.json (CartoSym-JSON), .sld (SLD/SE), .json (Mapbox GL / Map Libre)\n"
       "\n"
       "Supported geometry encodings:\n"
       "   .wkt (Well-Known Text), .wkb (Well-Known text Binary), .geojson (GeoJSON)\n"
@@ -31,7 +31,7 @@ static void showSyntax()
       "   .geojson (GeoJSON), .wkbc (Well-Known text Binary Collection including feature IDs)\n"
       "\n"
       "Supported expressions encodings:\n"
-      "   .cql2 (CQL2-Text), .cql2json (CQL2-JSON -- currently only as input)\n"
+      "   .cql2 (CQL2-Text), .cql2json (CQL2-JSON)\n"
       "\n"
       "Commands:\n"
       "\n"
