@@ -322,7 +322,7 @@ static CQL2Expression normalizeInstance(CQL2ExpInstance expInstance, GeometryTyp
    CQL2ExpList arguments = null;
    CQL2Tuple tuple = null;
    GeometryType gt = geomType;
-   bool geomRelated = false, isInterval = false;
+   bool geomRelated = false, isInterval = false, isTemporal = false;
 
    if(specName && specName.name)
    {
@@ -347,9 +347,11 @@ static CQL2Expression normalizeInstance(CQL2ExpInstance expInstance, GeometryTyp
          geomRelated = true;
       else if(!strcmp(sn, "TimeInterval"))
          isInterval = true;
+      else if(!strcmpi(sn, "INTERVAL") || !strcmpi(sn, "DATE") || !strcmpi(sn, "TIMESTAMP"))
+         isTemporal = true;
    }
 
-   if(!geomRelated && gt == none && !bboxArgs && !isInterval)
+   if(!geomRelated && gt == none && !bboxArgs && !isInterval && !isTemporal)
    {
       // REVIEW: Skip normalization for CartoSym CQL2 extension types (not WKT or temporal)
       return expInstance.copy();
