@@ -407,11 +407,48 @@ static void setSymInitializer(SymbolizerProperties symbolizer, const String prop
 
          if(vType)
          {
-            memberInit.lhValue = CQL2ExpMember
+            if(eClass_IsDerived(vType, class(Container)))
             {
-               exp = CQL2ExpIdentifier { identifier = { string = CopyString(propName) } },
-               member = CQL2Identifier { string = CopyString(k) };
-            };
+               FieldValue element = it.value;
+
+               if(element.type.type == map)
+               {
+                  FieldValue ix { };
+
+                  it.map = element.m;
+
+                  if(it.Index("index", false))
+                     ix = it.data;
+
+                  if(ix.type.type == integer && it.Index("value", false))
+                  {
+                     Class c = vType.templateArgs[0].dataTypeClass;
+                     if(!c)
+                     {
+                        c = eSystem_FindClass(vType.module, vType.templateArgs[0].dataTypeString);
+                        vType.templateArgs[0].dataTypeClass = c;
+                     }
+                     if(c) vType = c;
+                     memberInit.lhValue = CQL2ExpIndex
+                     {
+                        exp = CQL2ExpMember
+                        {
+                           exp = CQL2ExpIdentifier { identifier = { string = CopyString(propName) } },
+                           member = CQL2Identifier { string = CopyString(k) };
+                        },
+                        index = CQL2ExpList { [ CQL2ExpConstant { constant = ix } ] };
+                     };
+                  }
+               }
+            }
+            else
+            {
+               memberInit.lhValue = CQL2ExpMember
+               {
+                  exp = CQL2ExpIdentifier { identifier = { string = CopyString(propName) } },
+                  member = CQL2Identifier { string = CopyString(k) };
+               };
+            }
             memberInit.initializer = convertCQL2JSONEx(it.value, vType);
             memberInit.assignType = equal;
          }
