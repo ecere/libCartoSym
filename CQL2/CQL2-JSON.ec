@@ -285,9 +285,9 @@ static CQL2Expression convertCQL2JSONMap(FieldValue value, Class destType)
          while(dot)
          {
             id = dot + 1;
-            result = CQL2ExpMember { exp = result, member = { string = CopyString(id) } };
             dot = strchr(id, '.');
             if(dot) *dot = 0;
+            result = CQL2ExpMember { exp = result, member = { string = CopyString(id) } };
          }
       }
    }
