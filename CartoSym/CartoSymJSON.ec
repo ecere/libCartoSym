@@ -369,15 +369,63 @@ CSJSONStyle convertToCSJSON(CartoStyle in)
    return style;
 }
 
-static void setSymInitializer(SymbolizerProperties symbolizer, const String prop, /*const*/ FieldValue value, Class type)
+static void setSymInitializer(SymbolizerProperties symbolizer, const String propName,
+   /*const*/ FieldValue value, Class type)
 {
    CQL2MemberInit memberInit { };
    CQL2MemberInitList initList { [ memberInit ] };
+   Map<String, FieldValue> m = value.m;
+   MapIterator<String, FieldValue> it { map = m };
 
-   // TODO: handle alter
-   memberInit.lhValue = CQL2ExpIdentifier { identifier = { string = CopyString(prop) } };
-   memberInit.initializer = convertCQL2JSONEx(value, type);
-   memberInit.assignType = equal;
+   if(value.type.type == map && value.m && it.Index("alter", false))
+   {
+      it.Free();
+
+      // TODO: handle and verify deeper alterations
+      while(it.Next())
+      {
+         const String k = it.key;
+         Class vType = null;
+         DataMember member;
+         Property prop;
+
+         if(!strcmpi(k, "alter")) continue;
+
+         member = eClass_FindDataMember(type, k, type.module, null, null);
+         if(member)
+         {
+            if(!member.dataTypeClass)
+               member.dataTypeClass = eSystem_FindClass(type.module, member.dataTypeString);
+            vType = member.dataTypeClass;
+         }
+         else if((prop = eClass_FindProperty(type, k, type.module)))
+         {
+            if(!prop.dataTypeClass)
+               prop.dataTypeClass = eSystem_FindClass(type.module, prop.dataTypeString);
+            vType = prop.dataTypeClass;
+         }
+
+         if(vType)
+         {
+            memberInit.lhValue = CQL2ExpMember
+            {
+               exp = CQL2ExpIdentifier { identifier = { string = CopyString(propName) } },
+               member = CQL2Identifier { string = CopyString(k) };
+            };
+            memberInit.initializer = convertCQL2JSONEx(it.value, vType);
+            memberInit.assignType = equal;
+         }
+
+         it.Free();
+         break;
+      }
+   }
+   else
+   {
+      memberInit.lhValue = CQL2ExpIdentifier { identifier = { string = CopyString(propName) } };
+      memberInit.initializer = convertCQL2JSONEx(value, type);
+      memberInit.assignType = equal;
+   }
    /*if(memberInit.initializer)
    {
       PrintLn(memberInit.initializer._class.name);
