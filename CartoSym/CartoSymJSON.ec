@@ -78,8 +78,8 @@ class CSJSONSymbolizer
    FieldValue label;
 
 public:
-   property FieldValue zOrder     { isset { return zOrder.type.type != 0; }     get { value = zOrder; }     set { zOrder = zOrder; } }
-   property FieldValue opacity    { isset { return opacity.type.type != 0; }    get { value = opacity; }    set { visibility = opacity; } }
+   property FieldValue zOrder     { isset { return zOrder.type.type != 0; }     get { value = zOrder; }     set { zOrder = value; } }
+   property FieldValue opacity    { isset { return opacity.type.type != 0; }    get { value = opacity; }    set { opacity = value; } }
    property FieldValue visibility { isset { return visibility.type.type != 0; } get { value = visibility; } set { visibility = value; } }
    property FieldValue singleChannel { isset { return singleChannel.type.type != 0; } get { value = singleChannel; } set { singleChannel = value; } }
    property FieldValue alphaChannel { isset { return alphaChannel.type.type != 0; } get { value = alphaChannel; } set { alphaChannel = value; } }
