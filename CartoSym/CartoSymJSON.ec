@@ -515,6 +515,42 @@ StylingRule convertCSJSONStylingRule(CSJSONStylingRule r)
    {
       StylingRuleSelector selector { exp = convertCQL2JSONEx(r.selector, class(bool)) };
 
+      if(selector.exp && selector.exp._class == class(CQL2ExpOperation))
+      {
+         CQL2ExpOperation opExp = (CQL2ExpOperation)selector.exp;
+
+         // Layer ID equality, or Layer ID as first expression of an AND
+         if(opExp.op == equal ||
+            (opExp.op == and && opExp.exp1 && opExp.exp1._class == class(CQL2ExpOperation)))
+         {
+            CQL2ExpOperation eqExp = opExp.op == equal ? opExp : (CQL2ExpOperation)opExp.exp1;
+            if(eqExp.op == equal && eqExp.exp1 && eqExp.exp2 &&
+               eqExp.exp1._class == class(CQL2ExpMember) &&
+               eqExp.exp2._class == class(CQL2ExpString))
+            {
+               CQL2ExpMember lID = (CQL2ExpMember)eqExp.exp1;
+               CQL2ExpString s = (CQL2ExpString)eqExp.exp2;
+
+               if(lID && lID.exp && lID.member && lID.exp._class == class(CQL2ExpIdentifier) &&
+                  ((CQL2ExpIdentifier)lID.exp).identifier && ((CQL2ExpIdentifier)lID.exp).identifier.string &&
+                  !strcmpi(((CQL2ExpIdentifier)lID.exp).identifier.string, "dataLayer") &&
+                  lID.member && lID.member.string && !strcmp(lID.member.string, "id") && s && s.string)
+               {
+                  CQL2Expression newExp = opExp.op == equal ? null : opExp.exp2;
+                  String layerString = s.string;
+
+                  if(newExp)
+                     opExp.exp2 = null;
+                  s.string = null;
+
+                  delete selector.exp;
+                  selector.exp = newExp;
+                  rule.id = { string = layerString };
+               }
+            }
+         }
+      }
+
       rule.selectors = { [ selector ] };
    }
 
