@@ -544,14 +544,17 @@ StylingRule convertCSJSONStylingRule(CSJSONStylingRule r)
                   s.string = null;
 
                   delete selector.exp;
+
                   selector.exp = newExp;
                   rule.id = { string = layerString };
                }
             }
          }
       }
-
-      rule.selectors = { [ selector ] };
+      if(!selector.exp)
+         delete selector;
+      else
+         rule.selectors = { [ selector ] };
    }
 
    if(r.symbolizer)
