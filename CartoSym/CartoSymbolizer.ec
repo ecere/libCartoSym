@@ -439,7 +439,8 @@ public:
 
 public struct CartoSymEvaluator : GraphicalSymbolizerEvaluator
 {
-private:
+// FIXME: Currently, cross-bitness builds fail to set the proper struct size
+// private:
    int64 featureID;
    double scale;
    const String sceneID;

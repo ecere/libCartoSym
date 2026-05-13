@@ -281,10 +281,58 @@ public:
 
 public class MBGLLayersJSONData
 {
+public:
+   String id;
+   String source;
+   String sourcelayer;
+   String type;
+   property double minzoom
+   {
+      set { minzoom = value; }
+      get { return this ? minzoom : 0; }
+      isset { return minzoom ? true : false; } // false?
+   };
+
+   property double maxzoom
+   {
+      set { maxzoom = value; }
+      get { return this ? maxzoom : 0; }
+      isset { return maxzoom ? true : false; } // false?
+   };
+   property MBGLFilterValue filter
+   {
+      set { filter = value; }
+      get { value = filter; }
+      isset { return filter.type.type != nil && filter.type.type != 0; } // false?
+   };
+
+   property FieldValue metadata
+   {
+      // TODO:
+      set { }
+      get { value = { }; /*return null;*/ }
+      isset { return false; }
+   };
+
+   property MBGLLayoutJSONData layout
+   {
+      set { delete layout; layout = value; }
+      get { return layout; }
+   };
+
+   property MBGLPaintJSONData paint
+   {
+      set { delete paint; paint = value; }
+      get { return paint; }
+   };
+
 private:
    double minzoom;
    double maxzoom;
+   // REVIEW: Alignment issues in 32-bit without a property
    MBGLFilterValue filter;
+   MBGLLayoutJSONData layout;
+   MBGLPaintJSONData paint;
 
    ~MBGLLayersJSONData()
    {
@@ -1405,40 +1453,6 @@ private:
    }
 
 public:
-   String id;
-   String source;
-   String sourcelayer;
-   String type;
-   property double minzoom
-   {
-      set { minzoom = value; }
-      get { return this ? minzoom : 0; }
-      isset { return minzoom ? true : false; } // false?
-   };
-
-   property double maxzoom
-   {
-      set { maxzoom = value; }
-      get { return this ? maxzoom : 0; }
-      isset { return maxzoom ? true : false; } // false?
-   };
-   property MBGLFilterValue filter
-   {
-      set { filter = value; }
-      get { value = filter; }
-      isset { return filter.type.type != nil && filter.type.type != 0; } // false?
-   };
-
-   property FieldValue metadata
-   {
-      // TODO:
-      set { }
-      get { value = { }; /*return null;*/ }
-      isset { return false; }
-   };
-
-   MBGLLayoutJSONData layout;
-   MBGLPaintJSONData paint;
 
    MBGLLayersJSONData copy()
    {
