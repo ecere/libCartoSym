@@ -157,7 +157,7 @@ public CQL2Expression convertCQL2JSONEx(FieldValue value, Class destType)
                result = expInst;
             }
          }
-         else if(!strcmp(destType.name, "Alignment2D"))
+         else if(destType && !strcmp(destType.name, "Alignment2D"))
          {
             /*
             int i;
@@ -232,7 +232,8 @@ static CQL2Expression convertGenericObject(FieldValue value, Class destType, boo
 {
    Class type = destType;
    CQL2ExpInstance expInst { instance = { }, instanceFlags = { resolved = true }, expType = type };
-   bool isGraphic = destType && !strcmp(destType.base.name, "GraphicalElement");
+   bool isGraphic = destType && (!strcmp(destType.base.name, "GraphicalElement") ||
+      (destType.base.base && !strcmp(destType.base.base.name, "GraphicalElement")));
 
    if(skipType && destType)
       expInst.instance._class = { name = CopyString(destType.name) };
