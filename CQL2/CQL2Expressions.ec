@@ -639,11 +639,15 @@ public:
          DateTime dt = dateSec;
          TemporalOptions to {year=true, month=true, day=true};
          String dateString;
+         bool isDate = true;
 
          if(dt.hour || dt.minute || dt.second)
+         {
             to |= { hour = true, minute = true, second = true };
+            isDate = false;
+         }
          dateString = printTime(to, dt);
-         out.Print("DateTime { '", dateString, "' }");
+         out.Print(isDate ? "DATE" : "TIMESTAMP", "('", dateString, "')");
          delete dateString;
       }
       else if(constant.type.type == integer && (constant.type.format == hex || constant.type.format == color))
