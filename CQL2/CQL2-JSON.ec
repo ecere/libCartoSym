@@ -441,7 +441,23 @@ static CQL2Expression convertCQL2JSONMap(FieldValue value, Class destType)
          {
             CQL2ExpOperation expOp { op = op };
             if(args.count == 2)
+            {
+               if(e0 && e0._class == class(CQL2ExpOperation))
+               {
+                  // TODO: operation priority check?
+                  CQL2ExpOperation inner = (CQL2ExpOperation)e0;
+                  if(!inner.op.isComparison)
+                     e0 = CQL2ExpBrackets { list = { [ e0 ] } };
+               }
+               if(e1 && e1._class == class(CQL2ExpOperation))
+               {
+                  // TODO: operation priority check?
+                  CQL2ExpOperation inner = (CQL2ExpOperation)e1;
+                  if(!inner.op.isComparison)
+                     e1 = CQL2ExpBrackets { list = { [ e1 ] } };
+               }
                expOp.exp1 = e0;
+            }
             else if(op == not && e0._class == class(CQL2ExpOperation))
                e0 = CQL2ExpBrackets { list = { [ e0 ] } };  // TODO: bracket and/or
             // TODO: Handle notEqual etc. ?

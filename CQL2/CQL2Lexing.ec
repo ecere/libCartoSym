@@ -94,6 +94,35 @@ public enum CQL2TokenType
 
    property char { }
 
+   property bool isComparison
+   {
+      get
+      {
+         return
+            this == smaller ||
+            this == greater ||
+            this == equal ||
+            this == stringContains ||
+            this == stringEndsWith ||
+            this == notEqual ||
+            this == smallerEqual ||
+            this == greaterEqual ||
+            this == is ||
+            this == in ||
+            this == between ||
+            this == like ||
+            this == notBetween ||
+            this == notLike ||
+            this == notIn ||
+            this == stringContains ||
+            this == stringStartsWith ||
+            this == stringEndsWith ||
+            this == stringNotContains ||
+            this == stringNotStartsW ||
+            this == stringNotEndsW;
+      }
+   }
+
    property bool isUnaryOperator
    {
       get
