@@ -52,13 +52,23 @@ public:
 class CSJSONMetadata
 {
 public:
+   String name;
    String title;
-   String abstract;
+   String description;
+   String abstract; // NOTE: This is likely being replaced by description
+   String authors;
+   String keywords;
+   String geoDataClasses;
 
    ~CSJSONMetadata()
    {
+      delete name;
       delete title;
+      delete description;
       delete abstract;
+      delete keywords;
+      delete geoDataClasses;
+      delete authors;
    }
 }
 
@@ -358,10 +368,20 @@ CSJSONStyle convertToCSJSON(CartoStyle in)
             {
                if(!style.metadata) style.metadata = { };
 
-               if(!strcmp(id, "title"))
+               if(!strcmp(id, "name"))
+                  style.metadata.name = m.value ? CopyString(m.value.string) : null;
+               else if(!strcmp(id, "title"))
                   style.metadata.title = m.value ? CopyString(m.value.string) : null;
+               else if(!strcmp(id, "description"))
+                  style.metadata.description = m.value ? CopyString(m.value.string) : null;
                else if(!strcmp(id, "abstract"))
                   style.metadata.abstract = m.value ? CopyString(m.value.string) : null;
+               else if(!strcmp(id, "authors"))
+                  style.metadata.authors = m.value ? CopyString(m.value.string) : null;
+               else if(!strcmp(id, "keywords"))
+                  style.metadata.keywords = m.value ? CopyString(m.value.string) : null;
+               else if(!strcmp(id, "geoDataClasses"))
+                  style.metadata.geoDataClasses = m.value ? CopyString(m.value.string) : null;
             }
          }
       }
@@ -583,6 +603,15 @@ CartoStyle convertFromCSJSON(CSJSONStyle in)
 
       if(in.metadata)
       {
+         if(in.metadata.name)
+         {
+            StyleMetadata name
+            {
+               type = { string = CopyString("name") },
+               value = { string = CopyString(in.metadata.name) }
+            };
+            rules.Add(name);
+         }
          if(in.metadata.title)
          {
             StyleMetadata title
@@ -592,6 +621,15 @@ CartoStyle convertFromCSJSON(CSJSONStyle in)
             };
             rules.Add(title);
          }
+         if(in.metadata.description)
+         {
+            StyleMetadata description
+            {
+               type = { string = CopyString("description") },
+               value = { string = CopyString(in.metadata.description) }
+            };
+            rules.Add(description);
+         }
          if(in.metadata.abstract)
          {
             StyleMetadata abstract
@@ -600,6 +638,33 @@ CartoStyle convertFromCSJSON(CSJSONStyle in)
                value = { string = CopyString(in.metadata.abstract) }
             };
             rules.Add(abstract);
+         }
+         if(in.metadata.authors)
+         {
+            StyleMetadata authors
+            {
+               type = { string = CopyString("authors") },
+               value = { string = CopyString(in.metadata.authors) }
+            };
+            rules.Add(authors);
+         }
+         if(in.metadata.geoDataClasses)
+         {
+            StyleMetadata geoDataClasses
+            {
+               type = { string = CopyString("geoDataClasses") },
+               value = { string = CopyString(in.metadata.geoDataClasses) }
+            };
+            rules.Add(geoDataClasses);
+         }
+         if(in.metadata.keywords)
+         {
+            StyleMetadata keywords
+            {
+               type = { string = CopyString("keywords") },
+               value = { string = CopyString(in.metadata.keywords) }
+            };
+            rules.Add(keywords);
          }
       }
 
