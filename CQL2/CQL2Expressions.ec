@@ -35,6 +35,14 @@ private:
       return true;                                                \
    }
 
+#define BINARY_DIVIDEREAL(o, name, m, t) \
+   static bool name(FieldValue value, const FieldValue val1, const FieldValue val2)   \
+   {                                                                 \
+      value.r = (double)val1.m o (double)val2.m;             \
+      value.type = { type = real };                                     \
+      return true;                                                \
+   }
+
 
 #define BINARY_LOGICAL(o, name, m, t)                                        \
    static bool name(FieldValue value, const FieldValue val1, const FieldValue val2)   \
@@ -80,7 +88,7 @@ private:
    macro(o, text##name, s, text)
 
 #define OPERATOR_TABLE_INT(type) \
-    { type##Add, type##Sub, type##Mul, type##Div, type##DivInt, type##Mod, \
+    { type##Add, type##Sub, type##Mul, type##DivReal, type##DivInt, type##Mod, \
                           type##Neg, \
                           type##Not, \
                           type##Equ, type##Nqu, \
@@ -1124,7 +1132,10 @@ public:
                   switch(op)
                   {
                      case multiply:             if(tbl->Mul) tbl->Mul       (value, val1, val2); break;
-                     case divide:   if(val2.i)  if(tbl->Div) tbl->Div       (value, val1, val2); break;
+                     case divide:   if(val2.i)  if(tbl->Div) tbl->Div       (value, val1, val2);
+                        if(value.type.type == real && val1.type.type == integer)
+                           expType = class(double); // REVIEW: expType below did not change to double
+                        break;
                      case minus:                if(tbl->Sub) tbl->Sub       (value, val1, val2); break;
                      case plus:                 if(tbl->Add) tbl->Add       (value, val1, val2); break;
                      case modulo:               if(tbl->Mod) tbl->Mod       (value, val1, val2); break;
@@ -4025,7 +4036,7 @@ public:
 OPERATOR_NUMERIC(BINARY, +, Add) //see textAdd for concat
 OPERATOR_NUMERIC(BINARY, -, Sub)
 OPERATOR_NUMERIC(BINARY, *, Mul)
-OPERATOR_INT(BINARY_DIVIDEINT, /, Div)
+OPERATOR_INT(BINARY_DIVIDEREAL, /, DivReal)
 OPERATOR_INT(BINARY_DIVIDEINT, /, DivInt)
 OPERATOR_REAL(BINARY, /, Div)
 OPERATOR_INT(BINARY_DIVIDEINT, %, Mod)
