@@ -40,7 +40,7 @@ private:
    static bool name(FieldValue value, const FieldValue val1, const FieldValue val2)   \
    {                                                                    \
       value.i = val1.m o val2.m;                               \
-      value.type = { type = integer };                                     \
+      value.type = { type = integer, format = boolean };                                     \
       return true;                                                \
    }
 
@@ -56,7 +56,7 @@ private:
    static bool name(FieldValue value, const FieldValue val1)                \
    {                                                              \
       value.i = (o val1.m);                                   \
-      value.type = { type = integer };                                     \
+      value.type = { type = integer, format = boolean };                                     \
       return true;                                                \
    }
 
@@ -1070,7 +1070,7 @@ public:
                         if(v2.type.type == type.type)
                         {
                            tbl = &opTables[type.type];
-                           tbl->Equ(v, v1, v2);
+                           if(tbl->Equ) tbl->Equ(v, v1, v2);
                            if(v.i)
                            {
                               v2.OnFree();
@@ -4111,7 +4111,7 @@ static bool textEqu(FieldValue val, const FieldValue op1, const FieldValue op2)
       val.i = 1;
    else
       val.i = 0;
-   val.type = { type = integer };
+   val.type = { type = integer, format = boolean };
    return true;
 }
 
@@ -4133,7 +4133,7 @@ static bool textNqu(FieldValue val, const FieldValue op1, const FieldValue op2)
       val.i = 0;
    else
       val.i = 1;
-   val.type = { type = integer };
+   val.type = { type = integer, format = boolean };
    return true;
 }
 
@@ -4164,7 +4164,7 @@ OPERATOR_NUMERIC(BINARY_LOGICAL, <=, SmaEqu)
       delete s1, delete s2;
 #endif
    }
-   result.type = { type = integer };
+   result.type = { type = integer, format = boolean };
    return true;
 }
 
@@ -4185,7 +4185,7 @@ OPERATOR_NUMERIC(BINARY_LOGICAL, <=, SmaEqu)
       delete s1, delete s2;
 #endif
    }
-   result.type = { type = integer };
+   result.type = { type = integer, format = boolean };
    return true;
 }
 
@@ -4206,7 +4206,7 @@ OPERATOR_NUMERIC(BINARY_LOGICAL, <=, SmaEqu)
       delete s1, delete s2;
 #endif
    }
-   result.type = { type = integer };
+   result.type = { type = integer, format = boolean };
    return true;
 }
 
@@ -4267,7 +4267,7 @@ static bool textGrt(FieldValue val, const FieldValue op1, const FieldValue op2)
       delete s1, delete s2;
 #endif
    }
-   val.type = { type = integer };
+   val.type = { type = integer, format = boolean };
    return true;
 }
 
@@ -4287,7 +4287,7 @@ static bool textSma(FieldValue val, const FieldValue op1, const FieldValue op2)
       delete s1, delete s2;
 #endif
    }
-   val.type = { type = integer };
+   val.type = { type = integer, format = boolean };
    return true;
 }
 
@@ -4307,7 +4307,7 @@ static bool textGrtEqu(FieldValue val, const FieldValue op1, const FieldValue op
       delete s1, delete s2;
 #endif
    }
-   val.type = { type = integer };
+   val.type = { type = integer, format = boolean };
    return true;
 }
 
@@ -4327,7 +4327,7 @@ static bool textSmaEqu(FieldValue val, const FieldValue op1, const FieldValue op
       delete s1, delete s2;
 #endif
    }
-   val.type = { type = integer };
+   val.type = { type = integer, format = boolean };
    return true;
 }
 
