@@ -1117,8 +1117,8 @@ public:
                convertFieldValue(val1, type, val1);
 
             if((flags1.resolved && flags2.resolved) ||
-               (flags.resolved && op == '&' && (flags1.resolved ? !val1.i : !val2.i)) ||
-               (flags.resolved && op == '|' && (flags1.resolved ? val1.i : val2.i)))
+               (flags.resolved && op == and && (flags1.resolved ? !val1.i : !val2.i)) ||
+               (flags.resolved && op == or && (flags1.resolved ? val1.i : val2.i)))
             {
                if(!flags1.resolved)
                   val1.OnFree(), val1 = { type = { integer }, i = 0 };
@@ -1227,7 +1227,7 @@ public:
                switch(op)
                {
                   case '-':    tbl->Neg(value, val2);    break;
-                  case '!':    tbl->Not(value, val2);    expType = class(bool); break;
+                  case not:    tbl->Not(value, val2);    expType = class(bool); break;
                   case bitNot: tbl->BitNot(value, val2); break;
                }
             }
