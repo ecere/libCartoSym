@@ -22,6 +22,8 @@ CQL2Expression readCQL2Text(const String fileName)
          }
          delete f;
       }
+      else
+         PrintLn($"Failed to read file ", fileName);
    }
    return result;
 }

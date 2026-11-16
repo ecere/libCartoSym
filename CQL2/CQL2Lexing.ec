@@ -50,10 +50,6 @@ public enum CQL2TokenType
    semiColon = ';', // End of property assignment
    dot = '.',       // CartoSym-CSS Style Metadata; Member operator
 
-   // Text operators -- REVIEW: Will this be functions instead?
-   stringContains = '~',
-   stringEndsWith = '$',
-
    // Multi char symbols
    notEqual = 256,   // <> (or != alternative)
    smallerEqual,     // <=
@@ -69,6 +65,8 @@ public enum CQL2TokenType
    notBetween, // REVIEW: Handled as separate token?
    notLike,
    notIn,
+
+   // NOTE: We're dropping the text relation operators for contains(), startsWith() and endsWith()
 
    // Non-standard CQL2
    // Text Comparison
@@ -187,7 +185,9 @@ static const String tokenStrings[CQL2TokenType];
    */
    { "+=", addAssign }, // REVIEW: Will this be used in CartoSym-CSS?
 
-   // Text operators -- REVIEW: Will this be functions instead?
+   // Text operators -- REVIEW: Now functions instead, but should we still support these as well?
+   { "$", stringEndsWith },
+   { "~", stringContains },
    { "^^", stringStartsWith },
    { "!~", stringNotContains },
    { "!^", stringNotStartsW },

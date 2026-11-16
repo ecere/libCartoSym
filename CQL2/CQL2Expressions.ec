@@ -1123,31 +1123,31 @@ public:
                {
                   switch(op)
                   {
-                     case multiply:             tbl->Mul       (value, val1, val2); break;
-                     case divide:   if(val2.i)  tbl->Div       (value, val1, val2); break;
-                     case minus:                tbl->Sub       (value, val1, val2); break;
-                     case plus:                 tbl->Add       (value, val1, val2); break;
-                     case modulo:               tbl->Mod       (value, val1, val2); break;
-                     case equal:                tbl->Equ       (value, val1, val2); expType = class(bool); break;
-                     case notEqual:             tbl->Nqu       (value, val1, val2); expType = class(bool); break;
-                     case and:                  tbl->And       (value, val1, val2); expType = class(bool); break;
-                     case or:                   tbl->Or        (value, val1, val2); expType = class(bool); break;
-                     case greater:              tbl->Grt       (value, val1, val2); expType = class(bool); break;
-                     case smaller:              tbl->Sma       (value, val1, val2); expType = class(bool); break;
-                     case greaterEqual:         tbl->GrtEqu    (value, val1, val2); expType = class(bool); break;
-                     case smallerEqual:         tbl->SmaEqu    (value, val1, val2); expType = class(bool); break;
-                     case intDivide:            tbl->DivInt    (value, val1, val2); break;
-                     case stringStartsWith:     tbl->StrSrt    (value, val1, val2); expType = class(bool); break;
-                     case stringNotStartsW:     tbl->StrNotSrt (value, val1, val2); expType = class(bool); break;
-                     case stringEndsWith:       tbl->StrEnd    (value, val1, val2); expType = class(bool); break;
-                     case stringNotEndsW:       tbl->StrNotEnd (value, val1, val2); expType = class(bool); break;
-                     case stringContains:       tbl->StrCnt    (value, val1, val2); expType = class(bool); break;
-                     case stringNotContains:    tbl->StrNotCnt (value, val1, val2); expType = class(bool); break;
-                     case bitAnd:               tbl->BitAnd    (value, val1, val2); break;
-                     case bitOr:                tbl->BitOr     (value, val1, val2); break;
-                     case bitXor:               tbl->BitXor    (value, val1, val2); break;
-                     case lShift:               tbl->LShift    (value, val1, val2); break;
-                     case rShift:               tbl->RShift    (value, val1, val2); break;
+                     case multiply:             if(tbl->Mul) tbl->Mul       (value, val1, val2); break;
+                     case divide:   if(val2.i)  if(tbl->Div) tbl->Div       (value, val1, val2); break;
+                     case minus:                if(tbl->Sub) tbl->Sub       (value, val1, val2); break;
+                     case plus:                 if(tbl->Add) tbl->Add       (value, val1, val2); break;
+                     case modulo:               if(tbl->Mod) tbl->Mod       (value, val1, val2); break;
+                     case equal:                if(tbl->Equ) tbl->Equ       (value, val1, val2); expType = class(bool); break;
+                     case notEqual:             if(tbl->Nqu) tbl->Nqu       (value, val1, val2); expType = class(bool); break;
+                     case and:                  if(tbl->And) tbl->And       (value, val1, val2); expType = class(bool); break;
+                     case or:                   if(tbl->Or)  tbl->Or        (value, val1, val2); expType = class(bool); break;
+                     case greater:              if(tbl->Grt) tbl->Grt       (value, val1, val2); expType = class(bool); break;
+                     case smaller:              if(tbl->Sma) tbl->Sma       (value, val1, val2); expType = class(bool); break;
+                     case greaterEqual:         if(tbl->GrtEqu) tbl->GrtEqu    (value, val1, val2); expType = class(bool); break;
+                     case smallerEqual:         if(tbl->SmaEqu) tbl->SmaEqu    (value, val1, val2); expType = class(bool); break;
+                     case intDivide:            if(tbl->DivInt) tbl->DivInt    (value, val1, val2); break;
+                     case stringStartsWith:     if(tbl->StrSrt) tbl->StrSrt    (value, val1, val2); expType = class(bool); break;
+                     case stringNotStartsW:     if(tbl->StrNotSrt) tbl->StrNotSrt (value, val1, val2); expType = class(bool); break;
+                     case stringEndsWith:       if(tbl->StrEnd)    tbl->StrEnd    (value, val1, val2); expType = class(bool); break;
+                     case stringNotEndsW:       if(tbl->StrNotEnd) tbl->StrNotEnd (value, val1, val2); expType = class(bool); break;
+                     case stringContains:       if(tbl->StrCnt) tbl->StrCnt    (value, val1, val2); expType = class(bool); break;
+                     case stringNotContains:    if(tbl->StrNotCnt) tbl->StrNotCnt (value, val1, val2); expType = class(bool); break;
+                     case bitAnd:               if(tbl->BitAnd) tbl->BitAnd    (value, val1, val2); break;
+                     case bitOr:                if(tbl->BitOr) tbl->BitOr     (value, val1, val2); break;
+                     case bitXor:               if(tbl->BitXor) tbl->BitXor    (value, val1, val2); break;
+                     case lShift:               if(tbl->LShift) tbl->LShift    (value, val1, val2); break;
+                     case rShift:               if(tbl->RShift) tbl->RShift    (value, val1, val2); break;
                   }
                   flags.resolved = value.type.type != nil;
 
