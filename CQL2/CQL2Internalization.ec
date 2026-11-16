@@ -419,7 +419,7 @@ static CQL2Expression convertCQL2ExpCall(CQL2ExpCall c)
          cscssId.identifier.string = CopyString(idString);
          cscssCall.exp = cscssId;
          strlwr(cscssId.identifier.string);
-         for(i = 0; i < call.arguments.list.count; i++)
+         for(i = 0; i < (call.arguments && call.arguments.list ? call.arguments.list.count : 0); i++)
          {
             //if(i != 0 || !isIntersects)
             CQL2Expression arg = call.arguments.list[i];

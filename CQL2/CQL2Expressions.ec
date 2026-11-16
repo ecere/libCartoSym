@@ -1725,6 +1725,8 @@ public:
             if(computeType == preprocessing)
                expType = evaluatorClass.resolveFunction(evaluator, expValue, arguments, &flags, destType);
                                                                      // WARNING: This may not be enough for interpolate() / map()
+            flags.resolved = true; // For functions with no arguments...
+
             for(a = (Link<CQL2Expression>)arguments.list.first; a && numArgs < 50; a = a.next)
             {
                CQL2Expression arg = (CQL2Expression)(uintptr)*&a.data;
@@ -1837,7 +1839,7 @@ public:
          !strcmpi(expIdString, "POLYGON") ||
          !strcmpi(expIdString, "MULTIPOLYGON") ||
          !strcmpi(expIdString, "LINESTRING") ||
-         !strcmpi(expIdString, "MULTILINGSTRING") ||
+         !strcmpi(expIdString, "MULTILINESTRING") ||
          !strcmpi(expIdString, "POINT") ||
          !strcmpi(expIdString, "MULTIPOINT") ||
          !strcmpi(expIdString, "GEOMETRYCOLLECTION") ||
@@ -1916,14 +1918,10 @@ public:
 
          if(idString)
          {
-            // Automatically converting to lower case for CQL2-JSON
-            // It is not clear whether CQL2-Text allows both lowercase and uppercase
-            if(!strcmpi(idString, "casei") ||
-               !strcmpi(idString, "accenti") ||
-               SearchString(idString, 0, "s_", false, false) == idString ||
-               SearchString(idString, 0, "t_", false, false) == idString ||
-               SearchString(idString, 0, "a_", false, false) == idString)
-               strlwr(idString);
+            // Restore camelCase enum values
+            CQL2FunctionIndex fnIndex = unresolved;
+            if(fnIndex.OnGetDataFromString(idString) && fnIndex != unresolved)
+               strcpy(idString, fnIndex.OnGetString(null, null, null));
          }
 
          // TODO: Handle pow() conversion
@@ -4150,7 +4148,7 @@ OPERATOR_NUMERIC(BINARY_LOGICAL, >=, GrtEqu)
 OPERATOR_NUMERIC(BINARY_LOGICAL, <=, SmaEqu)
 
 // text conditions
-static bool textContains(FieldValue result, const FieldValue val1, const FieldValue val2)
+/*static */bool textContains(FieldValue result, const FieldValue val1, const FieldValue val2)
 {
    if(!(val1.s && val2.s))
       result.i = 0;
@@ -4170,7 +4168,7 @@ static bool textContains(FieldValue result, const FieldValue val1, const FieldVa
    return true;
 }
 
-static bool textStartsWith(FieldValue result, const FieldValue val1, const FieldValue val2)
+/*static */bool textStartsWith(FieldValue result, const FieldValue val1, const FieldValue val2)
 {
    if(!(val1.s && val2.s))
       result.i = 0;
@@ -4191,7 +4189,7 @@ static bool textStartsWith(FieldValue result, const FieldValue val1, const Field
    return true;
 }
 
-static bool textEndsWith(FieldValue result, const FieldValue val1, const FieldValue val2)
+/*static */bool textEndsWith(FieldValue result, const FieldValue val1, const FieldValue val2)
 {
    if(!(val1.s && val2.s))
       result.i = 0;

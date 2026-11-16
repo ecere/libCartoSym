@@ -40,17 +40,17 @@ public enum CQL2FunctionIndex : int
    t_contains,
    t_disjoint,
    t_during,
-   t_finishedby,
+   t_finishedBy,
    t_finishes,
    t_meets,
    t_metby,
-   t_overlappedby,
+   t_overlappedBy,
    t_overlaps,
-   t_startedby,
+   t_startedBy,
    t_starts,
 
    // Array functions
-   a_containedby,
+   a_containedBy,
    a_contains,
    a_equals,
    a_overlaps,
@@ -67,15 +67,47 @@ public enum CQL2FunctionIndex : int
    aggregateMulti,
 
    // Text manipulation
-   strupr,
-   strlwr,
+   upperCase,
+   strupr = upperCase,
+   lowerCase,
+   strlwr = lowerCase,
    strtod,
-   subst,
+   substitute,
+   subst = substitute,
    format,
    concatenate,
+   concatenate,
+   concat = concatenate,
+
+   // Text comparison
+   like,
+   contains,
+   startsWith,
+   endsWith,
+
+   // Math functions
    pow,
    log,
-   like,
+   abs,
+   acos,
+   asin,
+   atan,
+   atan2,
+   ceil,
+   cos,
+   cosh,
+   exp,
+   floor,
+   log10,
+   random,
+   round,
+   sin,
+   sinh,
+   sqrt,
+   tan,
+   tanh,
+
+   // Others
    interpolate,
    map
 };
@@ -290,6 +322,51 @@ static String formatValues(const String format, int numArgs, const FieldValue * 
    return result;
 }
 
+public String substituteStrings(const String text, int count, const String * substitutions)
+{
+   int i;
+   int resultLen = strlen(text);
+   String result = new char[resultLen + 1];
+   memcpy(result, text, resultLen + 1);
+
+   for(i = 0; i < count; i++)
+   {
+      const char * find = substitutions[2 * i];
+      const char * replace = substitutions[2 * i + 1];
+      const char * start = result;
+      int lenFind = find ? strlen(find) : 0;
+      int lenReplace = strlen(replace);
+      ZString z = null;
+      while(find) // Note that unlike strstr(), SearchString does not return start for an empty string ("") find
+      {
+         const char * found = SearchString(start, 0, find, true, true);
+         if(found)
+         {
+            if(!z)
+               z = { allocType = heap };
+            z.concatn(start, (int)(found - start));  // concatn() currently auto dec-refs to handle passing String
+            z.concatn(replace, lenReplace);
+            start = found + lenFind;
+         }
+         else
+         {
+            if(z)
+            {
+               const String end = result + resultLen;
+               z.concatn(start, (int)(end - start));
+               delete result;
+               result = z._string;
+               z._string = null;
+               resultLen = z.len;
+               delete z;
+            }
+            break;
+         }
+      }
+   }
+   return result;
+}
+
 // For extending ECCSS with custom identifiers and styling properties
 public struct CQL2Evaluator
 {
@@ -361,7 +438,7 @@ public struct CQL2Evaluator
                }
             }
          }
-         else if(fnIndex >= a_containedby && fnIndex <= a_overlaps)
+         else if(fnIndex >= a_containedBy && fnIndex <= a_overlaps)
          {
             // Array comparison functions
             if(args.list.count == 2)
@@ -377,6 +454,15 @@ public struct CQL2Evaluator
          }
          else if(fnIndex >= min && fnIndex <= avg)
          {
+            if((fnIndex == min || fnIndex == max) && args.list.count >= 2)
+            {
+               int i;
+               for(i = 0; i < args.list.count; i++)
+                  if(args[i]) args[i].destType = class(double);
+               expType = class(double);
+            }
+            // else: 1-arg or avg Condenser/Reducer operations
+
             // Condenser/Reducer Operations -- TODO: aggregate on all dimensions?
             // Temporal comparison functions
             /*
@@ -425,14 +511,14 @@ public struct CQL2Evaluator
          {
             switch(fnIndex)
             {
-               case strlwr:
-               case strupr:
+               case lowerCase: //strlwr:
+               case upperCase: //strupr:
                {
                   if(args.list.count >= 1) args[0].destType = class(String);
                   expType = class(String);
                   break;
                }
-               case subst:
+               case substitute: //subst:
                {
                   if(args.list.count >= 1) args[0].destType = class(String);
                   if(args.list.count >= 2) args[1].destType = class(String);
@@ -467,6 +553,45 @@ public struct CQL2Evaluator
                   expType = class(double);
                   break;
                }
+               case ceil:
+               case floor:
+               case round:
+               {
+                  if(args.list.count >= 1) args[0].destType = class(double);
+                  expType = class(int64);
+                  break;
+               }
+               case abs:
+               case acos:
+               case asin:
+               case atan:
+               case cos:
+               case cosh:
+               case exp:
+               case log10:
+               case sin:
+               case sinh:
+               case sqrt:
+               case tan:
+               case tanh:
+               {
+                  if(args.list.count >= 1) args[0].destType = class(double);
+                  expType = class(double);
+                  break;
+               }
+               case atan2:
+               {
+                  if(args.list.count >= 1) args[0].destType = class(double);
+                  if(args.list.count >= 2) args[1].destType = class(double);
+                  expType = class(double);
+                  break;
+               }
+               case random:
+               {
+                  if(!args.list.count)
+                     expType = class(double);
+                  break;
+               }
                case strtod:
                {
                   if(args.list.count >= 1) args[0].destType = class(double);
@@ -476,6 +601,9 @@ public struct CQL2Evaluator
                   break;
                }
                case like:
+               case contains:
+               case startsWith:
+               case endsWith:
                {
                   if(args.list.count >= 1) args[0].destType = class(String);
                   if(args.list.count >= 2) args[1].destType = class(String);
@@ -626,18 +754,18 @@ public struct CQL2Evaluator
                   case t_before:       value.i = time0->before(time1); break;
                   case t_contains:     value.i = time0->contains(time1); break;
                   case t_during:       value.i = time0->during(time1); break;
-                  case t_finishedby:   value.i = time0->finishedby(time1); break;
+                  case t_finishedBy:   value.i = time0->finishedby(time1); break;
                   case t_finishes:     value.i = time0->finishes(time1); break;
                   case t_meets:        value.i = time0->meets(time1); break;
                   case t_metby:        value.i = time0->metby(time1); break;
-                  case t_overlappedby: value.i = time0->overlappedby(time1); break;
+                  case t_overlappedBy: value.i = time0->overlappedby(time1); break;
                   case t_overlaps:     value.i = time0->overlaps(time1); break;
-                  case t_startedby:    value.i = time0->startedby(time1); break;
+                  case t_startedBy:    value.i = time0->startedby(time1); break;
                   case t_starts:       value.i = time0->starts(time1); break;
                }
             }
          }
-         else if(fnIndex >= a_containedby && fnIndex <= a_overlaps)
+         else if(fnIndex >= a_containedBy && fnIndex <= a_overlaps)
          {
             if(args[0].type.type == array && args[1].type.type == array)
             {
@@ -647,7 +775,7 @@ public struct CQL2Evaluator
                // TODO: move array functions where?
                switch(fnIndex)
                {
-                  case a_containedby:  value.i = arrayfuncContainedby(array1, array2); break;
+                  case a_containedBy:  value.i = arrayfuncContainedby(array1, array2); break;
                   case a_contains:     value.i = arrayfuncContains(array1, array2); break;
                   case a_equals:       value.i = arrayfuncEquals(array1, array2); break;
                   case a_overlaps:     value.i = arrayfuncOverlaps(array1, array2); break;
@@ -662,8 +790,8 @@ public struct CQL2Evaluator
          {
             switch(fnIndex)
             {
-               case strlwr:
-               case strupr:
+               case lowerCase: //strlwr:
+               case upperCase: //strupr:
                {
                   if(numArgs >= 1 && args[0].type.type == text)
                   {
@@ -677,26 +805,12 @@ public struct CQL2Evaluator
                   }
                   break;
                }
-               case subst:
+               case substitute: // subst:
                {
                   if(numArgs >= 3 && args[0].type.type == text && args[1].type.type == text && args[2].type.type == text)
                   {
-                     String n = SearchString(args[0].s, 0, args[1].s, false, false);
-                     if(n)
-                     {
-                        int len = strlen(args[0].s);
-                        int startLen = (uint)(n - args[0].s);
-                        int replacedLen = strlen(args[1].s);
-                        int replacingLen = strlen(args[2].s);
-                        int remainingLen = len - startLen - replacedLen;
-                        value.s = new char[startLen + replacingLen + remainingLen + 1];
-                        memcpy(value.s, args[0].s, startLen);
-                        memcpy(value.s + startLen, args[2].s, replacingLen);
-                        memcpy(value.s + startLen + replacingLen, args[0].s + startLen + replacedLen, remainingLen);
-                        value.s[startLen + replacingLen] = 0;
-                     }
-                     else
-                        value.s = CopyString(args[0].s);
+                     const String substitutions[2] = { args[1].s, args[2].s };
+                     value.s = substituteStrings(args[0].s, 1, substitutions);
                      value.type = { text, true };
                      expType = class(String);
                   }
@@ -765,6 +879,119 @@ public struct CQL2Evaluator
                         value.r =
                            log(args[1].type.type == integer ? (double)args[1].i : args[1].r) /
                            log(args[0].type.type == integer ? (double)args[0].i : args[0].r);
+                     expType = class(double);
+                  }
+                  break;
+               }
+               case random:
+               {
+                  if(numArgs == 0)
+                  {
+                     static bool seeded = false;
+                     if(!seeded)
+                     {
+                        RandomSeed((uint)(GetTime() * 1000000));
+                        seeded = true;
+                     }
+                     value.type = { real };
+                     value.r = GetRandom(0, MAXINT) / ((double)MAXINT + 1.0);
+                     expType = class(double);
+                  }
+                  break;
+               }
+               case ceil:
+               case floor:
+               case round:
+               {
+                  if(numArgs == 1 && (args[0].type.type == integer || args[0].type.type == real))
+                  {
+                     double x = args[0].type.type == integer ? (double)args[0].i : args[0].r;
+                     value.type = { integer };
+                     value.i = (fnIndex == ceil) ? (int64)ceil(x) :
+                               (fnIndex == floor) ? (int64)floor(x) : (int64)round(x);
+                     expType = class(int64);
+                  }
+                  break;
+               }
+               case abs:
+               case acos:
+               case asin:
+               case atan:
+               case cos:
+               case cosh:
+               case exp:
+               case log10:
+               case sin:
+               case sinh:
+               case sqrt:
+               case tan:
+               case tanh:
+               {
+                  if(numArgs == 1 && (args[0].type.type == integer || args[0].type.type == real))
+                  {
+                     double x = args[0].type.type == integer ? (double)args[0].i : args[0].r;
+                     value.type = { real };
+                     switch(fnIndex)
+                     {
+                        case abs:   value.r = fabs(x); break;
+                        case acos:  value.r = acos(x); break;
+                        case asin:  value.r = asin(x); break;
+                        case atan:  value.r = atan(x); break;
+                        case cos:   value.r = cos(x); break;
+                        case cosh:  value.r = cosh(x); break;
+                        case exp:   value.r = exp(x); break;
+                        case log10: value.r = log10(x); break;
+                        case sin:   value.r = sin(x); break;
+                        case sinh:  value.r = sinh(x); break;
+                        case sqrt:  value.r = sqrt(x); break;
+                        case tan:   value.r = tan(x); break;
+                        case tanh:  value.r = tanh(x); break;
+                     }
+                     expType = class(double);
+                  }
+                  break;
+               }
+               case atan2:
+               {
+                  if(numArgs == 2 &&
+                     (args[0].type.type == integer || args[0].type.type == real) &&
+                     (args[1].type.type == integer || args[1].type.type == real))
+                  {
+                     double y = args[0].type.type == integer ? (double)args[0].i : args[0].r;
+                     double x = args[1].type.type == integer ? (double)args[1].i : args[1].r;
+                     value.type = { real };
+                     value.r = atan2(y, x);
+                     expType = class(double);
+                  }
+                  break;
+               }
+               case min:
+               case max:
+               {
+                  if(numArgs >= 2)
+                  {
+                     int i;
+                     bool valid = true;
+                     double res = 0;
+                     for(i = 0; i < numArgs; i++)
+                     {
+                        double v;
+
+                        if(args[i].type.type != integer && args[i].type.type != real)
+                        {
+                           valid = false;
+                           break;
+                        }
+                        v = args[i].type.type == integer ? (double)args[i].i : args[i].r;
+                        if(i == 0 || (fnIndex == min ? v < res : v > res))
+                           res = v;
+                     }
+                     if(valid)
+                     {
+                        value.type = { real };
+                        value.r = res;
+                        expType = class(double);
+                     }
                   }
                   break;
                }
@@ -774,6 +1001,23 @@ public struct CQL2Evaluator
                   {
                      value.type = { type = integer/*, format = boolean*/ };
                      value.i = StringLikePattern(args[0].s, args[1].s);
+                     expType = class(bool);
+                  }
+                  break;
+               }
+               case contains:
+               case startsWith:
+               case endsWith:
+               {
+                  if(numArgs == 2 && args[0].type.type == text && args[1].type.type == text)
+                  {
+                     if(fnIndex == contains)
+                        textContains(value, args[0], args[1]);
+                     else if(fnIndex == startsWith)
+                        textStartsWith(value, args[0], args[1]);
+                     else
+                        textEndsWith(value, args[0], args[1]);
+                     value.type.format = boolean;
                      expType = class(bool);
                   }
                   break;
@@ -1269,8 +1513,8 @@ private void setGenericInstanceMembers(Instance object, CQL2Instantiation instan
                            if(array)
                            {
                               IteratorPointer i;
-                              int c;
-                              for(c = 0, i = array.GetFirst(); i; i = array.GetNext(i), c++)
+                              // int c;
+                              for(/*c = 0, */i = array.GetFirst(); i; i = array.GetNext(i)/*, c++*/)
                               {
                                  uintptr data = (uintptr)array.GetData(i);
                                  ((Array<uintptr>)object).Add(data);
