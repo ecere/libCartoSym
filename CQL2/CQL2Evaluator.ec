@@ -968,11 +968,13 @@ public struct CQL2Evaluator
                case min:
                case max:
                {
-                  if(numArgs >= 2)
+                  if(numArgs >= 1)
                   {
                      int i;
                      bool valid = true;
                      double res = 0;
+                     bool hasReal = false;
+
                      for(i = 0; i < numArgs; i++)
                      {
                         double v;
@@ -982,14 +984,24 @@ public struct CQL2Evaluator
                            valid = false;
                            break;
                         }
+                        else if(args[i].type.type == real)
+                           hasReal = true;
                         v = args[i].type.type == integer ? (double)args[i].i : args[i].r;
                         if(i == 0 || (fnIndex == min ? v < res : v > res))
                            res = v;
                      }
                      if(valid)
                      {
-                        value.type = { real };
-                        value.r = res;
+                        if(hasReal)
+                        {
+                           value.type = { real };
+                           value.r = res;
+                        }
+                        else
+                        {
+                           value.type = { integer };
+                           value.i = (int64)round(res);
+                        }
                         expType = class(double);
                      }
                   }
