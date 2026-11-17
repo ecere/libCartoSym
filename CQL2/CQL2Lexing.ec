@@ -194,10 +194,10 @@ static const String tokenStrings[CQL2TokenType];
    { "!$", stringNotEndsW },
 
    // Bitwise operators
-   { "bitand", bitAnd },
-   { "bitor", bitOr },
-   { "bitxor", bitXor },
-   { "bitnot", bitNot },
+   { "bitAnd", bitAnd },
+   { "bitOr", bitOr },
+   { "bitXor", bitXor },
+   { "bitNot", bitNot },
    { "<<", lShift },
    { ">>", rShift }
 ] };
