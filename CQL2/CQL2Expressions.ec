@@ -1049,49 +1049,66 @@ public:
             if(l && eClass_IsDerived(l._class, class(CQL2List<CQL2Expression>)))
             {
                FieldValue v { type = { type = nil } };
-               FieldValue v1 { };
 
-               v1.OnCopy(val1);
-
-               for(e : l.list)
+               if(!l.list.count)
                {
-                  CQL2Expression ne = e;
-                  FieldValue v2 { type = { type = nil } };
-                  ExpFlags f2 = ne.compute(v2, evaluator, computeType, instClass);
-                  if(flags1.resolved && v1.type.type != nil)
-                  {
-                     if(f2.resolved)
-                     {
-                        if(op >= stringStartsWith && op <= stringNotContains)
-                           type.type = text;
-                        else
-                        {
-                           type.type = (val1.type.type == real || v2.type.type == real) ? real :
-                                  (val1.type.type == integer || v2.type.type == integer) ? integer : text;
-                           type.isDateTime = (val1.type.isDateTime || v2.type.isDateTime);
-                        }
+                  v = { type = { integer }, i = 0 };
+                  expType = class(bool);
+               }
+               else
+               {
+                  bool hasNull = false;
+                  FieldValue v1 { };
 
-                        if(v1.type.type != type.type)
-                           convertFieldValue(v1, type, v1);
-                        if(v2.type.type != type.type)
-                           convertFieldValue(v2, type, v2);
-                        if(v2.type.type == type.type)
+                  v1.OnCopy(val1);
+
+                  for(e : l.list)
+                  {
+                     CQL2Expression ne = e;
+                     FieldValue v2 { type = { type = nil } };
+                     ExpFlags f2 = ne.compute(v2, evaluator, computeType, instClass);
+                     if(flags1.resolved && v1.type.type != nil)
+                     {
+                        if(f2.resolved)
                         {
-                           tbl = &opTables[type.type];
-                           if(tbl->Equ) tbl->Equ(v, v1, v2);
-                           if(v.i)
+                           if(v2.type.type == nil)
+                              hasNull = true;
+                           else
                            {
-                              v2.OnFree();
-                              break;
+                              if(op >= stringStartsWith && op <= stringNotContains)
+                                 type.type = text;
+                              else
+                              {
+                                 type.type = (val1.type.type == real || v2.type.type == real) ? real :
+                                        (val1.type.type == integer || v2.type.type == integer) ? integer : text;
+                                 type.isDateTime = (val1.type.isDateTime || v2.type.isDateTime);
+                              }
+
+                              if(v1.type.type != type.type)
+                                 convertFieldValue(v1, type, v1);
+                              if(v2.type.type != type.type)
+                                 convertFieldValue(v2, type, v2);
+                              if(v2.type.type == type.type)
+                              {
+                                 tbl = &opTables[type.type];
+                                 if(tbl->Equ) tbl->Equ(v, v1, v2);
+                                 if(v.i)
+                                 {
+                                    v2.OnFree();
+                                    break;
+                                 }
+                              }
                            }
                         }
                      }
+                     else
+                        flags |= f2;
+                     v2.OnFree();
                   }
-                  else
-                     flags |= f2;
-                  v2.OnFree();
+                  if(hasNull && !v.i)
+                     v = { type = { nil } };
+                  v1.OnFree();
                }
-               v1.OnFree();
                value = v;
 
                flags.resolved = flags1.resolved && flags2.resolved;
@@ -1101,6 +1118,8 @@ public:
          }
          else
          {
+            bool dom1, dom2;
+
             // REVIEW: condition for overall flags to be resolved
             if(op >= stringContains && op <= stringNotEndsW)
                type.type = text;
@@ -1116,29 +1135,33 @@ public:
             if(flags1.resolved && val1.type.type != type.type && val1.type.type != nil)
                convertFieldValue(val1, type, val1);
 
-            if((flags1.resolved && flags2.resolved) ||
-               (flags.resolved && op == and && (flags1.resolved ? !val1.i : !val2.i)) ||
-               (flags.resolved && op == or && (flags1.resolved ? val1.i : val2.i)))
+            dom1 = flags1.resolved && val1.type.type == integer && ((op == and && !val1.i) || (op == or && val1.i));
+            dom2 = flags2.resolved && val2.type.type == integer && ((op == and && !val2.i) || (op == or && val2.i));
+
+            if((flags1.resolved && flags2.resolved) || dom1 || dom2)
             {
-               if(!flags1.resolved)
+               if(!flags1.resolved || (dom2 && val1.type.type == nil))
                   val1.OnFree(), val1 = { type = { integer }, i = 0 };
-               if(!flags2.resolved)
+               if(!flags2.resolved || (dom1 && val2.type.type == nil))
                   val2.OnFree(), val2 = { type = { integer }, i = 0 };
                if(val2.type.type != nil && val2.type.type != type.type)
                   convertFieldValue(val2, type, val2);
 
                if(val1.type.type != nil && val1.type.type == val2.type.type)
                {
+                  bool isZero2 = (val2.type.type == real) ? (val2.r == 0) : (val2.i == 0);
+
                   switch(op)
                   {
                      case multiply:             if(tbl->Mul) tbl->Mul       (value, val1, val2); break;
-                     case divide:   if(val2.i)  if(tbl->Div) tbl->Div       (value, val1, val2);
+
+                     case divide:   if(!isZero2 && tbl->Div) tbl->Div       (value, val1, val2); else value = { type = { nil } };
                         if(value.type.type == real && val1.type.type == integer)
                            expType = class(double); // REVIEW: expType below did not change to double
                         break;
                      case minus:                if(tbl->Sub) tbl->Sub       (value, val1, val2); break;
                      case plus:                 if(tbl->Add) tbl->Add       (value, val1, val2); break;
-                     case modulo:               if(tbl->Mod) tbl->Mod       (value, val1, val2); break;
+                     case modulo:   if(!isZero2 && tbl->Mod)    tbl->Mod    (value, val1, val2); else value = { type = { nil } }; break;
                      case equal:                if(tbl->Equ) tbl->Equ       (value, val1, val2); expType = class(bool); break;
                      case notEqual:             if(tbl->Nqu) tbl->Nqu       (value, val1, val2); expType = class(bool); break;
                      case and:                  if(tbl->And) tbl->And       (value, val1, val2); expType = class(bool); break;
@@ -1147,7 +1170,7 @@ public:
                      case smaller:              if(tbl->Sma) tbl->Sma       (value, val1, val2); expType = class(bool); break;
                      case greaterEqual:         if(tbl->GrtEqu) tbl->GrtEqu    (value, val1, val2); expType = class(bool); break;
                      case smallerEqual:         if(tbl->SmaEqu) tbl->SmaEqu    (value, val1, val2); expType = class(bool); break;
-                     case intDivide:            if(tbl->DivInt) tbl->DivInt    (value, val1, val2); break;
+                     case intDivide: if(!isZero2 && tbl->DivInt) tbl->DivInt (value, val1, val2); else value = { type = { nil } }; break;
                      case stringStartsWith:     if(tbl->StrSrt) tbl->StrSrt    (value, val1, val2); expType = class(bool); break;
                      case stringNotStartsW:     if(tbl->StrNotSrt) tbl->StrNotSrt (value, val1, val2); expType = class(bool); break;
                      case stringEndsWith:       if(tbl->StrEnd)    tbl->StrEnd    (value, val1, val2); expType = class(bool); break;
@@ -1160,10 +1183,8 @@ public:
                      case lShift:               if(tbl->LShift) tbl->LShift    (value, val1, val2); break;
                      case rShift:               if(tbl->RShift) tbl->RShift    (value, val1, val2); break;
                   }
-                  flags.resolved = value.type.type != nil;
-
                   // REVIEW: Assigning expType? -- Improve on promotions/conversion rules?
-                  if(!expType)
+                  if(!expType && value.type.type != nil)
                   {
                      expType = exp1.expType && exp1.expType == class(Meters) ? exp1.expType :
                                exp2.expType && exp2.expType == class(Meters) ? exp2.expType :
@@ -1171,6 +1192,7 @@ public:
                                exp2.expType && exp2.expType == class(double) ? exp2.expType :
                                exp1.expType ? exp1.expType : exp2.expType;
                   }
+                  flags.resolved = value.type.type != nil || isZero2;
                }
                else if((val1.type.type == nil || val2.type.type == nil) && (op == equal || op == notEqual))
                {
@@ -1178,20 +1200,20 @@ public:
                   bool result;
 
                   if(falseNullComparisons)
-                  {
-                     // REVIEW: Should the be false or null?
-                     result = false;
-                  }
-                  else if(op == equal)
-                     result = val1.type.type == val2.type.type;
+                     value = { type = { nil } };
                   else
-                     result = val1.type.type != val2.type.type;
-                  expType = class(bool);
+                  {
+                     if(op == equal)
+                        result = val1.type.type == val2.type.type;
+                     else
+                        result = val1.type.type != val2.type.type;
+                     expType = class(bool);
+                     value = { type = { integer }, i = result };
+                  }
                   flags.resolved = true;
-                  value = { type = { integer }, i = result };
                }
                else
-                  flags.resolved = false;
+                  flags.resolved = flags1.resolved && flags2.resolved; //false;
             }
             else if(flags1 == 64) // FIXME: dimensions work-around
             {
@@ -1234,11 +1256,16 @@ public:
             else if(op == not)
             {
                flags.resolved = true;
-               value = { type = { integer }, i = !falseNullComparisons };
-               expType = class(bool);
+               if(!falseNullComparisons)
+               {
+                  value = { type = { integer }, i = 0 };
+                  expType = class(bool);
+               }
+               else
+                  value = { type = { nil } };
             }
             else
-               flags.resolved = false;
+               flags.resolved = true; // -NULL, bitnot NULL -> null
          }
          val2.OnFree();
       }

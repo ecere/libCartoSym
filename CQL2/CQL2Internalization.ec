@@ -53,6 +53,7 @@ public CQL2Expression convertToInternalCQL2(CQL2Expression c)
       {
          CQL2ExpString expString = null;
          CQL2Expression exp2 = expOpCQL2.exp2;
+         bool isNotLike = expOpCQL2.op == notLike;
          bool ai = false, ci = false;
 
          while(exp2 && exp2._class == class(CQL2ExpCall))
@@ -80,7 +81,6 @@ public CQL2Expression convertToInternalCQL2(CQL2Expression c)
             const String s = expString.string;
             bool quoted = false;
             bool foundQ = false, startP = false, endP = false, middleP = false;
-            bool isNotLike = expOpCQL2.op == notLike;
             String unescaped = s ? getLikeStringPattern(s, &quoted, &foundQ, &startP, &endP, &middleP) : null;
 
             if(s && !foundQ && !middleP)
@@ -108,18 +108,20 @@ public CQL2Expression convertToInternalCQL2(CQL2Expression c)
                e = expOp;
             }
             else
-            {
-               CQL2ExpCall call
-               {
-                  exp = CQL2ExpIdentifier { identifier = { string = CopyString("like") } },
-                  arguments = { [
-                     convertToInternalCQL2(expOpCQL2.exp1),
-                     convertToInternalCQL2(expOpCQL2.exp2)
-                  ] }
-               };
-               e = isNotLike ? CQL2ExpOperation { op = not, exp2 = call, falseNullComparisons = true } : call;
                delete unescaped;
-            }
+         }
+
+         if(!e)
+         {
+            CQL2ExpCall call
+            {
+               exp = CQL2ExpIdentifier { identifier = { string = CopyString("like") } },
+               arguments = { [
+                  convertToInternalCQL2(expOpCQL2.exp1),
+                  convertToInternalCQL2(expOpCQL2.exp2)
+               ] }
+            };
+            e = isNotLike ? CQL2ExpOperation { op = not, exp2 = call, falseNullComparisons = true } : call;
          }
       }
       else if(expOpCQL2.op == notIn)

@@ -97,8 +97,10 @@ bool evaluateExpression(
             result = true;
          }
          else
-            PrintLn("Unresolved expression (flags: ", flags, ")");
+            PrintLn($"Unresolved expression (flags: ", flags, ")");
       }
+      else
+         PrintLn($"Failure to internalize expression");
 
       if(attributes)
          attributes.Free(), delete attributes;
