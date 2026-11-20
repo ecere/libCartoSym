@@ -332,10 +332,21 @@ static bool isPrecedence(CQL2TokenType this, int l)
    return false;
 }
 
+public enum CQL2IdentifierType
+{
+   // For now prop means explicitly qualified as a property to override e.g., null, false, true
+   normal,
+   prop
+
+   // REVIEW: We could eventually possibly resolve ahead of time whether an identifier is an enumeration value,
+   // a system identifier, a property, or null...
+};
+
 public class CQL2Identifier : CQL2Node
 {
 public:
    String string;
+   CQL2IdentifierType type;
 
    bool isValid(bool allowColon)
    {
@@ -359,7 +370,7 @@ public:
    void print(File out, int indent, CQL2OutputOptions o)
    {
       // NOTE: according to the spec, can be quoteless also
-      bool needsQuotes = string && !isValid(o.strictCQL2);
+      bool needsQuotes = string && (!isValid(o.strictCQL2) || type == prop);
       if(needsQuotes) out.Print('"');
       out.Print(string ? string : "<null>");
       if(needsQuotes) out.Print('"');
@@ -368,12 +379,12 @@ public:
    CQL2Identifier ::parse(CQL2Lexer lexer)
    {
       lexer.readToken();
-      return { string = CopyString(lexer.token.text) };
+      return { string = CopyString(lexer.token.text), type = lexer.token.type == propertyIdentifier ? prop : normal };
    }
 
    CQL2Identifier copy()
    {
-      CQL2Identifier id { string = CopyString(string) };
+      CQL2Identifier id { string = CopyString(string), type = type };
       return id;
    }
 
@@ -468,13 +479,14 @@ static CQL2Expression parseSimplePrimaryExpression(CQL2Lexer lexer)
 {
    if(lexer.peekToken().type == constant)
       return CQL2ExpConstant::parse(lexer);
-   else if(lexer.nextToken.type == identifier)
+   else if(lexer.nextToken.type == identifier || lexer.nextToken.type == propertyIdentifier)
    {
+      bool isNormalIdentifier = lexer.nextToken.type == identifier;
       CQL2ExpIdentifier exp = CQL2ExpIdentifier::parse(lexer);
       CQL2Token token = lexer.peekToken();
       bool isInstance = false;
 
-      if(!lexer.strictCQL2)
+      if(!lexer.strictCQL2 && isNormalIdentifier)
       {
          if(token.type == '{')
             isInstance = true;
@@ -548,7 +560,7 @@ static CQL2Expression parseTupleOrUnaryExpression(CQL2Lexer lexer)
    while((exp = parseUnaryExpression(lexer)))
    {
       CQL2TokenType type = lexer.peekToken().type;
-      if(type == CQL2Token::constant || type == CQL2Token::identifier || type == CQL2Token::stringLiteral || (lexer.wktContext > 0 && type.isUnaryOperator))
+      if(type == CQL2Token::constant || type == CQL2Token::identifier || type == CQL2Token::propertyIdentifier || type == CQL2Token::stringLiteral || (lexer.wktContext > 0 && type.isUnaryOperator))
       {
          if(!tuple)
             tuple = { };
@@ -883,24 +895,24 @@ public:
       //bool (* onGetDataFromString)(void *, void *, const char *) = (void *)destType._vTbl[__eCVMethodID_class_OnGetDataFromString];
       if(computeType == preprocessing && identifier.string)
       {
-         if(!strcmpi(identifier.string, "null"))
+         if(identifier.type != prop && !strcmpi(identifier.string, "null"))
          {
             value.type.type = nil;
             flags.resolved = true; // Should resolved be set for null?
          }
-         else if(!strcmpi(identifier.string, "true"))
+         else if(identifier.type != prop && !strcmpi(identifier.string, "true"))
          {
             value = { { type = integer, format = boolean }, i = 1 };
             flags.resolved = true;
             expType = class(bool);
          }
-         else if(!strcmpi(identifier.string, "false"))
+         else if(identifier.type != prop && !strcmpi(identifier.string, "false"))
          {
             value = { { type = integer, format = boolean }, i = 0 };
             flags.resolved = true;
             expType = class(bool);
          }
-         else if(destType && (destType.type == enumClass || destType == class(Color)))
+         else if(identifier.type != prop && destType && (destType.type == enumClass || destType == class(Color)))
          {
             //awaiting special code here
             //enum will be an int if not color
@@ -983,12 +995,15 @@ public:
    void toCQL2JSON(FieldValue json)
    {
       String idString = CopyString(identifier ? identifier.string : null);
+      bool isProp = identifier && identifier.type == prop;
 
-      if(idString && !strcmpi(idString, "true"))
+      if(!isProp && idString && !strcmpi(idString, "true"))
          json = { type = { integer, format = boolean }, i = 1 };
-      else if(idString && !strcmpi(idString, "false"))
+      else if(!isProp && idString && !strcmpi(idString, "false"))
          json = { type = { integer, format = boolean }, i = 0 };
-      else if(isEnumValue(idString, destType))
+      else if(!isProp && idString && !strcmpi(idString, "null"))
+         json = { type = { nil } };
+      else if(!isProp && isEnumValue(idString, destType))
          json = FieldValue { type = { text, mustFree = true }, s = idString };
       else
       {
@@ -3040,7 +3055,7 @@ public:
       CQL2Expression lhValue = null;
       CQL2Expression initializer = null;
       CQL2TokenType assignType = '=';
-      if(lexer.peekToken().type == identifier)
+      if(lexer.peekToken().type == identifier || lexer.nextToken.type == propertyIdentifier)
       {
          int a = lexer.pushAmbiguity();
          lhValue = CQL2ExpIdentifier::parse(lexer);
@@ -3053,7 +3068,7 @@ public:
                {
                   lexer.readToken();
                   token = lexer.peekToken();
-                  if(token.type == identifier)
+                  if(token.type == identifier || token.type == propertyIdentifier)
                   {
                      CQL2Identifier id = CQL2Identifier::parse(lexer);
                      lhValue = CQL2ExpMember { exp = lhValue, member = id };

@@ -198,7 +198,7 @@ public CQL2Expression convertToInternalCQL2(CQL2Expression c)
             else
                s = CopyString(string);
 
-            expId = { identifier = { string = s } };
+            expId = { identifier = { string = s, type = expIdCQL2.identifier ? expIdCQL2.identifier.type : normal } };
             if(lastMemberExp)
                lastMemberExp.exp = expId;
             else

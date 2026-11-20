@@ -7,6 +7,7 @@ public enum CQL2TokenType
    syntaxError = 3000,
    lexingError = 2000,
    identifier = 1000,
+   propertyIdentifier = 1001,
    constant,
    stringLiteral,
 
@@ -463,7 +464,8 @@ public class CQL2Lexer
                         advanceChar = false;
                      strncpy(this.text, input + start, len);
                      this.text[len] = 0;
-                     type = doubleQuotedID ? identifier : matchToken(text);
+                     // Double-quoted identifiers are explicitly marked as properties
+                     type = doubleQuotedID ? propertyIdentifier : matchToken(text);
                      doubleQuotedID = false;
                   }
                   break;
@@ -724,6 +726,7 @@ public class CQL2Lexer
       {
          switch(token.type)
          {
+            case propertyIdentifier:
             case identifier:
             case stringLiteral:
             case constant:

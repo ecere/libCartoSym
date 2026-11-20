@@ -740,6 +740,9 @@ private:
       {
          if(identifier.string)
          {
+            bool isProp = identifier.type == prop;
+
+            // REVIEW: Should double-quote allow referencing property with same name as system identifiers?
             if(!strcmpi(identifier.string, "viz"))
                flags->resolved = true;             // TODO: Review this? setting scale flag? -- That is done in evaluateMember
             else if(!strcmpi(identifier.string, "rec"))
@@ -748,7 +751,7 @@ private:
                flags->resolved = true;
             else if(!strcmpi(identifier.string, "scene"))
                flags->resolved = true;
-            else if(!strcmpi(identifier.string, "null"))
+            else if(!isProp && !strcmpi(identifier.string, "null"))
             {
                // NOTE: This currently handles the 'null' identifier
                // Computed with a feature ID, but identifier is not matched...
@@ -756,12 +759,12 @@ private:
                flags->resolved = true;
                value.type.type = nil;
             }
-            else if(!strcmpi(identifier.string, "false"))   // TODO: Could these have been converted to integer in preprocessing?
+            else if(!isProp && !strcmpi(identifier.string, "false"))   // TODO: Could these have been converted to integer in preprocessing?
             {
                flags->resolved = true;
                value = { type = { integer, format = boolean }, i = 0 };
             }
-            else if(!strcmpi(identifier.string, "true"))
+            else if(!isProp && !strcmpi(identifier.string, "true"))
             {
                flags->resolved = true;
                value = { type = { integer, format = boolean }, i = 1 };
