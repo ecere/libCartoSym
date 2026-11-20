@@ -161,7 +161,7 @@ public int UnescapeCQL2String(char * d, const char * s, int len)
             case '\\': d[k] = '\\'; break;
             case '\"': d[k] = '\"'; break;
             case '\'': d[k] = '\''; break;
-            default: d[k] = '\\'; d[k] = ch;
+            default: d[k++] = '\\'; d[k] = ch;
          }
       }
       else
