@@ -267,6 +267,25 @@ public CQL2Expression normalizeCQL2(CQL2Expression c)
    }
    else if(c._class == class(CQL2ExpInstance))
       e = normalizeInstance((CQL2ExpInstance)c, none, null);
+   else if(c._class == class(CQL2ExpConditional))
+   {
+      CQL2ExpConditional cond = (CQL2ExpConditional)c;
+      CQL2ExpList expList = null;
+
+      if(cond.expList)
+      {
+         expList = { };
+         if(cond.expList.list)
+            for(el : cond.expList.list)
+               expList.list.Add(normalizeCQL2(el));
+      }
+      e = CQL2ExpConditional
+      {
+         condition = cond.condition ? normalizeCQL2(cond.condition) : null,
+         expList = expList,
+         elseExp = cond.elseExp ? normalizeCQL2(cond.elseExp) : null
+      };
+   }
    return e;
 }
 

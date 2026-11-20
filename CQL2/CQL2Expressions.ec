@@ -1567,6 +1567,28 @@ public:
       return exp;
    }
 
+   void toCQL2JSON(FieldValue json)
+   {
+      Map<String, FieldValue> m { };
+      Array<FieldValue> args { };
+      CQL2Expression trueExp = expList && expList.GetCount() > 0 ? expList[0] : null;
+      FieldValue vCond { type = { nil } };
+      FieldValue vTrue { type = { nil } };
+      FieldValue vElse { type = { nil } };
+
+      json = { type = { map, mustFree = true }, m = m };
+      m["op"] = FieldValue { type = { text, mustFree = true }, s = CopyString("?:") };
+      m["args"] = FieldValue { type = { array, mustFree = true }, a = args };
+
+      if(condition) condition.toCQL2JSON(vCond);
+      if(trueExp)   trueExp.toCQL2JSON(vTrue);
+      if(elseExp)   elseExp.toCQL2JSON(vElse);
+
+      args.Add(vCond);
+      args.Add(vTrue);
+      args.Add(vElse);
+   }
+
    ExpFlags compute(FieldValue value, CQL2Evaluator evaluator, ComputeType computeType, Class instClass)
    {
       // RVVIEW: computeType ignored here ?
