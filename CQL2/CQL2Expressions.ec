@@ -1405,13 +1405,13 @@ public:
 
       json = { type = { map, mustFree = true }, m = m };
 
-      if((op == notEqual && exp2IsNull) || op == notLike || op == notBetween)
+      if((op == notEqual && exp2IsNull) || op == notLike || op == notBetween || op == notIn)
       {
          // There are no direct NOT operators for these
          m["op"] = FieldValue { type = { text }, s = (void *)(String)"not" };
          m["args" ] = FieldValue { type = { array }, a = args };
 
-         op = (op == notEqual) ? equal : (op == notLike) ? like : between;
+         op = (op == notEqual) ? equal : (op == notLike) ? like : (op == notIn) ? in : between;
          m = { };
          args.Add({ type = { map, mustFree = true }, m = m });
          args = { };
