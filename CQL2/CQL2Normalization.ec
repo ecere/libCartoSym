@@ -230,9 +230,9 @@ public CQL2Expression normalizeCQL2(CQL2Expression c)
       CQL2ExpIdentifier id = call.exp && call.exp._class == class(CQL2ExpIdentifier) ? (CQL2ExpIdentifier)call.exp : null;
       String fnName = id && id.identifier ? id.identifier.string : null;
       CQL2ExpList arguments = call.arguments;
-      if(fnName && arguments && arguments.list)
+      if(fnName) // random() doesn't have arguments -- && arguments && arguments.list)
       {
-         if(!strcmp(fnName, "pow") && arguments.list.count >= 2)
+         if(!strcmp(fnName, "pow") && arguments && arguments.list.count >= 2)
          {
             CQL2ExpOperation expOp
             {
@@ -242,7 +242,7 @@ public CQL2Expression normalizeCQL2(CQL2Expression c)
             };
             e = expOp;
          }
-         else if(!strcmp(fnName, "like") && arguments.list.count >= 2)
+         else if(!strcmp(fnName, "like") && arguments && arguments.list.count >= 2)
          {
             CQL2ExpOperation expOp
             {
@@ -258,8 +258,9 @@ public CQL2Expression normalizeCQL2(CQL2Expression c)
             CQL2ExpCall cql2Call { exp = cql2Id, arguments = { } };
             //S_*, T_* or A_* functions
             strupr(cql2Id.identifier.string);
-            for(a : call.arguments.list)
-               cql2Call.arguments.Add(normalizeCQL2(a));
+            if(arguments)
+               for(a : call.arguments.list)
+                  cql2Call.arguments.Add(normalizeCQL2(a));
             e = cql2Call;
          }
       }
