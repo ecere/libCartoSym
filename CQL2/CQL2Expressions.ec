@@ -1426,6 +1426,7 @@ public:
          case minus:    opString = "-"; break;
          case multiply: opString = "*"; break;
          case divide:   opString = "/"; break;
+         case modulo:   opString = "%"; break;
          // TOOD: Handle between conversion here
          case smallerEqual: opString = "<="; break;
          case greaterEqual: opString = ">="; break;
