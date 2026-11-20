@@ -195,7 +195,7 @@ public:
          else
             break;
 
-         if(lexer.peekToken().type == identifier)
+         if(lexer.peekToken().type == identifier || lexer.nextToken.type == propertyIdentifier)
          {
             CQL2Token t;
             int a = lexer.pushAmbiguity();
@@ -276,6 +276,7 @@ public:
             break;
          lexer.peekToken();
          if(lexer.nextToken.type == identifier ||
+            lexer.nextToken.type == propertyIdentifier ||
             lexer.nextToken.type == '{' || lexer.nextToken.type == '}' || !lexer.nextToken.type)
             break;
       }
@@ -356,7 +357,8 @@ public:
    {
       lexer.peekToken();
 
-      if(lexer.nextToken.type == '[' || lexer.nextToken.type == identifier || lexer.nextToken.type == '{')
+      if(lexer.nextToken.type == '[' || lexer.nextToken.type == identifier ||
+         lexer.nextToken.type == propertyIdentifier || lexer.nextToken.type == '{')
          return StylingRule::parse(lexer);
       else if(lexer.nextToken.type == '.')
          return StyleMetadata::parse(lexer);
@@ -427,11 +429,12 @@ public:
    {
       lexer.peekToken();
 
-      if(lexer.nextToken.type == '[' || lexer.nextToken.type == identifier || lexer.nextToken.type == '{')
+      if(lexer.nextToken.type == '[' || lexer.nextToken.type == identifier ||
+         lexer.nextToken.type == propertyIdentifier ||lexer.nextToken.type == '{')
       {
          StylingRule block { };
 
-         if(lexer.peekToken().type == identifier)
+         if(lexer.peekToken().type == identifier || lexer.nextToken.type == propertyIdentifier)
             block.id = CQL2Identifier::parse(lexer);
 
          if(lexer.peekToken().type == '[')
@@ -440,11 +443,12 @@ public:
          if(lexer.peekToken().type == '{')
             lexer.readToken();
 
-         if(lexer.peekToken().type == identifier)
+         if(lexer.peekToken().type == identifier || lexer.nextToken.type == propertyIdentifier)
             block.symbolizer = SymbolizerProperties::parse(lexer);
 
          lexer.peekToken();
-         if(lexer.nextToken.type == '[' || lexer.nextToken.type == identifier || lexer.nextToken.type == '{')
+         if(lexer.nextToken.type == '[' || lexer.nextToken.type == identifier ||
+            lexer.nextToken.type == propertyIdentifier || lexer.nextToken.type == '{')
             block.nestedRules = StyleBlockList::parse(lexer);
 
          if(lexer.peekToken().type == '}')
